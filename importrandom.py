@@ -205,3 +205,78 @@ def envejecer(self):
 # -----------------------------------
 # CLASES DE ANIMALES
 # -----------------------------------
+
+class Vaca(Animal):
+    def __init__(self, x, y):
+        ruta_img = os.path.join(IMAGES_DIR, "vaca.png")
+        super().__init__("Vaca", "herbivoro", x, y, ruta_img, default_face_left=True)
+        self.leche = 0
+        self.contador_leche = 0
+
+    def actualizar(self, ecosistema):
+        plantas = ecosistema.plantas
+        target_x, target_y = None, None
+        
+        if self.vida < 90 and plantas:
+            objetivo = min(plantas, key=lambda p: distancia(self, p))
+            if distancia(self, objetivo) < 15:
+                ecosistema.plantas.remove(objetivo)
+                self.vida = min(100, self.vida + 15)
+            else:
+                target_x, target_y = objetivo.x, objetivo.y
+        
+        super().mover(target_x, target_y, ecosistema)
+        self.envejecer()
+        
+        self.contador_leche += 1
+        if self.contador_leche >= 100:
+            self.leche = min(10, self.leche + 1)
+            self.contador_leche = 0
+
+class Gallina(Animal):
+    def __init__(self, x, y):
+        ruta_img = os.path.join(IMAGES_DIR, "gallina.png")
+        super().__init__("Gallina", "herbivoro", x, y, ruta_img, default_face_left=True)
+        self.contador_huevo = random.randint(80, 200)
+
+    def actualizar(self, ecosistema):
+        plantas = ecosistema.plantas
+        target_x, target_y = None, None
+        
+        if self.vida < 90 and plantas:
+            objetivo = min(plantas, key=lambda p: distancia(self, p))
+            if distancia(self, objetivo) < 15:
+                ecosistema.plantas.remove(objetivo)
+                self.vida = min(100, self.vida + 5)
+            else:
+                target_x, target_y = objetivo.x, objetivo.y
+        
+        super().mover(target_x, target_y, ecosistema)
+        self.envejecer()
+        self.contador_huevo -= 1
+        if self.contador_huevo <= 0:
+            ecosistema.huevos.append(Huevo(self.x, self.y))
+            self.contador_huevo = random.randint(120, 250)
+
+class Zorro(Animal):
+    def __init__(self, x, y):
+        ruta_img = os.path.join(IMAGES_DIR, "zorro.png")
+        super().__init__("Zorro", "carnivoro", x, y, ruta_img, default_face_left=True)
+        self.velocidad = 3
+
+    def actualizar(self, ecosistema):
+        presas = [a for a in ecosistema.animales if isinstance(a, Gallina) and a.esta_vivo()]
+        
+        target_x, target_y = None, None
+        if self.vida < 90 and presas:
+            objetivo = min(presas, key=lambda p: distancia(self, p))
+            if distancia(self, objetivo) < 15:
+                objetivo.vida = 0
+                self.vida = min(100, self.vida + 20)
+                target_x = self.x + random.randint(-50, 50)
+                target_y = self.y + random.randint(-50, 50)
+            else:
+                target_x, target_y = objetivo.x, objetivo.y
+        
+        super().mover(target_x, target_y, ecosistema)
+        self.envejecer()
