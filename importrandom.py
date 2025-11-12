@@ -91,3 +91,24 @@ class Entidad:
 
     def dibujar(self, superficie):
         pass
+def envejecer(self):
+        self.vida -= random.uniform(0.01, 0.04)
+
+    def esta_vivo(self):
+        return self.vida > 0
+
+    def dibujar(self, superficie):
+        # *** AGREGADO PARA EL CLIC: Definir el rect ***
+        self.rect = self.imagen.get_rect(topleft=(self.x, self.y)) 
+        # **********************************************
+        superficie.blit(self.imagen, (self.x, self.y))
+        dibujar_corazones(superficie, self.x, self.y, self.vida)
+        texto_nombre = fuente_nombre.render(self.nombre, True, (0, 0, 0))
+        
+        texto_rect = texto_nombre.get_rect(centerx=self.x + self.tamano // 2)
+        texto_rect.y = self.y + self.tamano + 2
+        superficie.blit(texto_nombre, texto_rect)
+
+# -----------------------------------
+# CLASES DE ANIMALES
+# -----------------------------------
