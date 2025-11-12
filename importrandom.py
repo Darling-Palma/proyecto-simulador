@@ -112,3 +112,53 @@ def envejecer(self):
 # -----------------------------------
 # CLASES DE ANIMALES
 # -----------------------------------
+# -----------------------------------
+# PLANTA (CON IMAGEN)
+# -----------------------------------
+class Planta(Entidad):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.tamano = 15
+        ruta_img = os.path.join(IMAGES_DIR, "planta.png")
+        self.imagen = cargar_imagen_segura(ruta_img, tam=(self.tamano, self.tamano), color=(34, 139, 34))
+        self.rect = pygame.Rect(x - self.tamano // 2, y - self.tamano // 2, self.tamano, self.tamano)
+
+    def dibujar(self, superficie):
+        superficie.blit(self.imagen, (self.x, self.y))
+
+# -----------------------------------
+# FLOR (NUEVA CLASE PARA DECORACIÓN)
+# -----------------------------------
+class Flor(Entidad):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        flor_options = {
+            "flor_roja.png": (15, 20), 
+            "flor_azul.png": (30, 30),
+            "flor_amarilla.png": (15, 20)
+        }
+        
+        flor_elegida = random.choice(list(flor_options.keys()))
+        tamano_elegido = flor_options[flor_elegida]
+        
+        self.tamano = max(tamano_elegido)
+        ruta_img = os.path.join(IMAGES_DIR, flor_elegida)
+        self.imagen = cargar_imagen_segura(ruta_img, tam=tamano_elegido, color=(255, 100, 100))
+        self.rect = pygame.Rect(x - self.tamano // 2, y - self.tamano // 2, tamano_elegido[0], tamano_elegido[1])
+
+    def dibujar(self, superficie):
+        superficie.blit(self.imagen, (self.x, self.y))
+
+# -----------------------------------
+# ALGA (CON IMAGEN)
+# -----------------------------------
+class Alga(Entidad):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.tamano = 12
+        ruta_img = os.path.join(IMAGES_DIR, "alga.png")
+        self.imagen = cargar_imagen_segura(ruta_img, tam=(self.tamano, self.tamano), color=(40, 120, 50))
+        self.rect = pygame.Rect(x - self.tamano // 2, y - self.tamano // 2, self.tamano, self.tamano)
+
+    def dibujar(self, superficie):
+        superficie.blit(self.imagen, (self.x, self.y))
