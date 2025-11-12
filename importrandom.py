@@ -29,3 +29,10 @@ COLOR_TEXTO = (255, 255, 255)
 FUENTE_GRANDE = pygame.font.SysFont(None, 48)
 FUENTE_MEDIANA = pygame.font.SysFont(None, 32)
 fuente_nombre = pygame.font.SysFont(None, 16) # Fuente para nombres
+# Cargar imagen de corazón (rojo/roto para simplificación)
+TAMANO_CORAZON = 10
+USAR_IMAGEN_CORAZON = False
+IMAGEN_CORAZON_LLENO = None
+IMAGEN_CORAZON_VACIO = None
+
+# ----------------------------------------------------
