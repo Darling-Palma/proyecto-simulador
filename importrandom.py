@@ -47,3 +47,14 @@ try:
 except Exception:
     USAR_IMAGEN_CORAZON = False
 # -----------------------------------------------------------------
+# --- NUEVO: Cargar fondos ---
+try:
+    FONDO_JUEGO = cargar_imagen_segura(os.path.join(IMAGES_DIR, "fondo.png"), tam=(ANCHO, ALTO))
+except Exception:
+    FONDO_JUEGO = pygame.Surface((ANCHO, ALTO)); FONDO_JUEGO.fill((135, 206, 235))
+
+try:
+    FONDO_MENU = cargar_imagen_segura(os.path.join(IMAGES_DIR, "menu_fondo.png"), tam=(ANCHO, ALTO))
+except Exception:
+    FONDO_MENU = pygame.Surface((ANCHO, ALTO)); FONDO_MENU.fill(COLOR_MENU)
+# ----------------------------
