@@ -35,4 +35,15 @@ USAR_IMAGEN_CORAZON = False
 IMAGEN_CORAZON_LLENO = None
 IMAGEN_CORAZON_VACIO = None
 
-# ----------------------------------------------------
+# --- Carga de Corazones (movida aquí después de definir la función) ---
+try:
+    RUTA_CORAZON_LLENO = os.path.join(IMAGES_DIR, "corazon_lleno.png")
+    RUTA_CORAZON_VACIO = os.path.join(IMAGES_DIR, "corazon_vacio.png")
+    IMAGEN_CORAZON_LLENO = cargar_imagen_segura(RUTA_CORAZON_LLENO, tam=(TAMANO_CORAZON, TAMANO_CORAZON), color=(255, 0, 0))
+    IMAGEN_CORAZON_VACIO = cargar_imagen_segura(RUTA_CORAZON_VACIO, tam=(TAMANO_CORAZON, TAMANO_CORAZON), color=(50, 0, 0))
+    # Comprobar si la carga fue exitosa (si no, devuelve un Surface con color)
+    if IMAGEN_CORAZON_LLENO.get_width() == TAMANO_CORAZON: # Un chequeo simple
+        USAR_IMAGEN_CORAZON = True
+except Exception:
+    USAR_IMAGEN_CORAZON = False
+# -----------------------------------------------------------------
