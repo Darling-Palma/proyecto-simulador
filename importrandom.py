@@ -21,3 +21,11 @@ except NameError:
     BASE_DIR = os.getcwd()
 IMAGES_DIR = os.path.join(BASE_DIR, "imagenes")
 # ----------------------------------------------
+# --- Nuevas configuraciones para Corazones y Botón ---
+ESTADO_JUEGO = "MENU" # Nuevo estado para el control del juego
+COLOR_MENU = (100, 100, 100)
+COLOR_BOTON = (0, 200, 0)
+COLOR_TEXTO = (255, 255, 255)
+FUENTE_GRANDE = pygame.font.SysFont(None, 48)
+FUENTE_MEDIANA = pygame.font.SysFont(None, 32)
+fuente_nombre = pygame.font.SysFont(None, 16) # Fuente para nombres
