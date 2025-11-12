@@ -400,3 +400,140 @@ class Oso(Animal):
         
         super().mover(target_x, target_y, ecosistema)
         self.envejecer()
+
+class Oso(Animal):
+    def __init__(self, x, y):
+        ruta_img = os.path.join(IMAGES_DIR, "oso.png")
+        super().__init__("Oso", "omnívoro", x, y, ruta_img, default_face_left=True)
+        self.velocidad = random.randint(1, 2)
+
+    def actualizar(self, ecosistema):
+        presas = [a for a in ecosistema.animales if isinstance(a, Gallina) and a.esta_vivo()]
+        plantas = ecosistema.plantas
+        target_x, target_y = None, None
+        
+        if self.vida < 90:
+            if presas and random.random() < 0.5:
+                objetivo = min(presas, key=lambda p: distancia(self, p))
+                if distancia(self, objetivo) < 18:
+                    objetivo.vida = 0
+                    self.vida = min(100, self.vida + 15)
+                else:
+                    target_x, target_y = objetivo.x, objetivo.y
+            elif plantas:
+                objetivo = min(plantas, key=lambda p: distancia(self, p))
+                if distancia(self, objetivo) < 15:
+                    ecosistema.plantas.remove(objetivo)
+                    self.vida = min(100, self.vida + 10)
+                else:
+                    target_x, target_y = objetivo.x, objetivo.y
+        
+        super().mover(target_x, target_y, ecosistema)
+        self.envejecer()  
+
+class Cerdo(Animal):
+    def __init__(self, x, y):
+        ruta_img = os.path.join(IMAGES_DIR, "cerdo.png")
+        super().__init__("Cerdo", "herbivoro", x, y, ruta_img, default_face_left=True)
+
+    def actualizar(self, ecosistema):
+        plantas = ecosistema.plantas
+        target_x, target_y = None, None
+        
+        if self.vida < 90 and plantas:
+            objetivo = min(plantas, key=lambda p: distancia(self, p))
+            if distancia(self, objetivo) < 15:
+                ecosistema.plantas.remove(objetivo)
+                self.vida = min(100, self.vida + 10)
+            else:
+                target_x, target_y = objetivo.x, objetivo.y
+
+        super().mover(target_x, target_y, ecosistema)
+        self.envejecer()
+
+class Lobo(Animal):
+    def __init__(self, x, y):
+        ruta_img = os.path.join(IMAGES_DIR, "lobo.png")
+        super().__init__("Lobo", "carnivoro", x, y, ruta_img, default_face_left=False) # Funciona bien
+        self.velocidad = random.randint(2, 3)
+
+    def actualizar(self, ecosistema):
+        presas = [a for a in ecosistema.animales if isinstance(a, Gallina) and a.esta_vivo()]
+        
+        target_x, target_y = None, None
+        if self.vida < 90 and presas:
+            objetivo = min(presas, key=lambda p: distancia(self, p))
+            if distancia(self, objetivo) < 15:
+                objetivo.vida = 0
+                self.vida = min(100, self.vida + 25)
+                target_x = self.x + random.randint(-50, 50)
+                target_y = self.y + random.randint(-50, 50)
+            else:
+                target_x, target_y = objetivo.x, objetivo.y
+        
+        super().mover(target_x, target_y, ecosistema)
+        self.envejecer()                                                          
+
+class Rana(Animal):
+    def __init__(self, x, y):
+        ruta_img = os.path.join(IMAGES_DIR, "rana.png")
+        super().__init__("Rana", "carnivoro", x, y, ruta_img, default_face_left=False) # Funciona bien
+
+    def actualizar(self, ecosistema):
+        mariposas = [a for a in ecosistema.animales if isinstance(a, Mariposa) and a.esta_vivo()]
+        
+        target_x, target_y = None, None
+        if self.vida < 90 and mariposas:
+            objetivo = min(mariposas, key=lambda m: distancia(self, m))
+            if distancia(self, objetivo) < 20:
+                objetivo.vida = 0
+                self.vida = min(100, self.vida + 15)
+                target_x = self.x + random.randint(-50, 50)
+                target_y = self.y + random.randint(-50, 50)
+            else:
+                target_x, target_y = objetivo.x, objetivo.y
+        
+        super().mover(target_x, target_y, ecosistema)
+        self.envejecer()
+
+class Mariposa(Animal):
+    def __init__(self, x, y):
+        ruta_img = os.path.join(IMAGES_DIR, "mariposa.png")
+        super().__init__("Mariposa", "herbivoro", x, y, ruta_img, default_face_left=True)
+
+    def actualizar(self, ecosistema):
+        plantas = ecosistema.plantas
+        target_x, target_y = None, None
+        
+        if self.vida < 90 and plantas:
+            objetivo = min(plantas, key=lambda p: distancia(self, p))
+            if distancia(self, objetivo) < 15:
+                ecosistema.plantas.remove(objetivo)
+                self.vida = min(100, self.vida + 5)
+            else:
+                target_x, target_y = objetivo.x, objetivo.y
+        
+        super().mover(target_x, target_y, ecosistema)
+        self.envejecer()
+        
+# -----------------------------------
+# DICCIONARIO PARA CREACIÓN DINÁMICA DE ANIMALES
+# (Necesario para el clic)
+# -----------------------------------                                                  
+
+CLASES_ANIMALES = {
+    'Vaca': Vaca,
+    'Gallina': Gallina,
+    'Zorro': Zorro,
+    'Caballo': Caballo,
+    'Pez': Pez,
+    'Oso': Oso,
+    'Cerdo': Cerdo,
+    'Lobo': Lobo,
+    'Rana': Rana,
+    'Mariposa': Mariposa
+}
+
+# -----------------------------------
+# HUEVO
+# -----------------------------------
