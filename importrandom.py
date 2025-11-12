@@ -354,3 +354,49 @@ class Pez(Animal):
         lago_agua_rect = ecosistema.lago.rect_agua
         self.x = max(lago_agua_rect.x, min(self.x, lago_agua_rect.right - self.tamano))
         self.y = max(lago_agua_rect.y, min(self.y, lago_agua_rect.bottom - self.tamano))
+
+def actualizar(self, ecosistema):
+        algas_cercanas = ecosistema.algas
+        target_x, target_y = None, None
+        
+        if self.vida < 90 and algas_cercanas:
+            objetivo = min(algas_cercanas, key=lambda a: distancia(self, a))
+            if distancia(self, objetivo) < 15:
+                ecosistema.algas.remove(objetivo)
+                self.vida = min(100, self.vida + 10)
+                target_x, target_y = None, None
+            else:
+                target_x, target_y = objetivo.x, objetivo.y
+        
+        self.mover(target_x, target_y, ecosistema)
+        self.envejecer()
+
+class Oso(Animal):
+    def __init__(self, x, y):
+        ruta_img = os.path.join(IMAGES_DIR, "oso.png")
+        super().__init__("Oso", "omnívoro", x, y, ruta_img, default_face_left=True)
+        self.velocidad = random.randint(1, 2)
+
+    def actualizar(self, ecosistema):
+        presas = [a for a in ecosistema.animales if isinstance(a, Gallina) and a.esta_vivo()]
+        plantas = ecosistema.plantas
+        target_x, target_y = None, None
+        
+        if self.vida < 90:
+            if presas and random.random() < 0.5:
+                objetivo = min(presas, key=lambda p: distancia(self, p))
+                if distancia(self, objetivo) < 18:
+                    objetivo.vida = 0
+                    self.vida = min(100, self.vida + 15)
+                else:
+                    target_x, target_y = objetivo.x, objetivo.y
+            elif plantas:
+                objetivo = min(plantas, key=lambda p: distancia(self, p))
+                if distancia(self, objetivo) < 15:
+                    ecosistema.plantas.remove(objetivo)
+                    self.vida = min(100, self.vida + 10)
+                else:
+                    target_x, target_y = objetivo.x, objetivo.y
+        
+        super().mover(target_x, target_y, ecosistema)
+        self.envejecer()
