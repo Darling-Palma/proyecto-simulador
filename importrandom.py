@@ -58,3 +58,36 @@ try:
 except Exception:
     FONDO_MENU = pygame.Surface((ANCHO, ALTO)); FONDO_MENU.fill(COLOR_MENU)
 # ----------------------------
+# --- Nueva función para dibujar corazones ---
+def dibujar_corazones(superficie, x, y, vida_porcentaje, max_corazones=3):
+    """Dibuja corazones para representar la vida."""
+    corazones_llenos = math.ceil(vida_porcentaje / 100 * max_corazones)
+    
+    start_x = x + 35 // 2 - (max_corazones * TAMANO_CORAZON + (max_corazones - 1) * 2) // 2
+    
+    for i in range(max_corazones):
+        corazon_x = start_x + i * (TAMANO_CORAZON + 2)
+        corazon_y = y - 8 - TAMANO_CORAZON
+        
+        if i < corazones_llenos:
+            if USAR_IMAGEN_CORAZON:
+                superficie.blit(IMAGEN_CORAZON_LLENO, (corazon_x, corazon_y))
+            else:
+                pygame.draw.circle(superficie, (255, 0, 0), (corazon_x + TAMANO_CORAZON // 2, corazon_y + TAMANO_CORAZON // 2), TAMANO_CORAZON // 2)
+        else:
+            if USAR_IMAGEN_CORAZON:
+                superficie.blit(IMAGEN_CORAZON_VACIO, (corazon_x, corazon_y)) # CORRECCIÓN: Usar corazon_x, corazon_y sin desplazamiento
+            else:
+                pygame.draw.circle(superficie, (50, 0, 0), (corazon_x + TAMANO_CORAZON // 2, corazon_y + TAMANO_CORAZON // 2), TAMANO_CORAZON // 2)
+                pygame.draw.circle(superficie, (255, 255, 255), (corazon_x + TAMANO_CORAZON // 2, corazon_y + TAMANO_CORAZON // 2), TAMANO_CORAZON // 2, 1)
+
+# -----------------------------------
+# CLASES BASE
+# -----------------------------------
+class Entidad:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def dibujar(self, superficie):
+        pass
