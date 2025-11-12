@@ -14,7 +14,10 @@ pygame.init()
 ventana = pygame.display.set_mode((ANCHO, ALTO))
 pygame.display.set_caption("Simulador de Ecosistema (Con Casa)")
 reloj = pygame.time.Clock()
+ sebastian
 
+
+ main
 # --- Definición de rutas de imágenes ---
 try:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -22,7 +25,10 @@ except NameError:
     BASE_DIR = os.getcwd()
 IMAGES_DIR = os.path.join(BASE_DIR, "imagenes")
 # ----------------------------------------------
+sebastian
 
+
+ main
 # --- Nuevas configuraciones para Corazones y Botón ---
 ESTADO_JUEGO = "MENU" # Nuevo estado para el control del juego
 COLOR_MENU = (100, 100, 100)
@@ -31,12 +37,17 @@ COLOR_TEXTO = (255, 255, 255)
 FUENTE_GRANDE = pygame.font.SysFont(None, 48)
 FUENTE_MEDIANA = pygame.font.SysFont(None, 32)
 fuente_nombre = pygame.font.SysFont(None, 16) # Fuente para nombres
+ sebastian
 
+
+main
 # Cargar imagen de corazón (rojo/roto para simplificación)
 TAMANO_CORAZON = 10
 USAR_IMAGEN_CORAZON = False
 IMAGEN_CORAZON_LLENO = None
 IMAGEN_CORAZON_VACIO = None
+
+ sebastian
 
 # ----------------------------------------------------
 
@@ -73,6 +84,7 @@ def cargar_imagen_segura(ruta, tam=(40, 40), color=(200, 200, 200), flip_horizon
         surf.fill(color)
         return surf
 
+main
 # --- Carga de Corazones (movida aquí después de definir la función) ---
 try:
     RUTA_CORAZON_LLENO = os.path.join(IMAGES_DIR, "corazon_lleno.png")
@@ -85,7 +97,10 @@ try:
 except Exception:
     USAR_IMAGEN_CORAZON = False
 # -----------------------------------------------------------------
+ sebastian
 
+
+ main
 # --- NUEVO: Cargar fondos ---
 try:
     FONDO_JUEGO = cargar_imagen_segura(os.path.join(IMAGES_DIR, "fondo.png"), tam=(ANCHO, ALTO))
@@ -97,6 +112,8 @@ try:
 except Exception:
     FONDO_MENU = pygame.Surface((ANCHO, ALTO)); FONDO_MENU.fill(COLOR_MENU)
 # ----------------------------
+sebastian
+
 
 def normalizar_vector(dx, dy):
     # Corrección: math.sqrt(dx**2 + dy**2)
@@ -149,6 +166,7 @@ def generar_spawn_cerca(punto_x, punto_y, obstaculos_rects, tamano_entidad, radi
     print("[WARN] No se pudo encontrar un spawn seguro cerca del punto, usando spawn aleatorio.")
     return generar_spawn_seguro(obstaculos_rects, tamano_entidad)
 
+main
 # --- Nueva función para dibujar corazones ---
 def dibujar_corazones(superficie, x, y, vida_porcentaje, max_corazones=3):
     """Dibuja corazones para representar la vida."""
@@ -182,6 +200,8 @@ class Entidad:
 
     def dibujar(self, superficie):
         pass
+sebastian
+def envejecer(self):
 
 # -----------------------------------
 # CLASE ANIMAL
@@ -278,6 +298,7 @@ class Animal(Entidad):
             self.y = max(0, min(ALTO - self.tamano, self.y))
 
     def envejecer(self):
+ main
         self.vida -= random.uniform(0.01, 0.04)
 
     def esta_vivo(self):
@@ -298,6 +319,8 @@ class Animal(Entidad):
 # -----------------------------------
 # CLASES DE ANIMALES
 # -----------------------------------
+ sebastian
+
 class Vaca(Animal):
     def __init__(self, x, y):
         ruta_img = os.path.join(IMAGES_DIR, "vaca.png")
@@ -620,6 +643,7 @@ class Huevo(Entidad):
         texto = fuente_nombre.render("Huevo", True, (0, 0, 0))
         superficie.blit(texto, (self.x, self.y - 10))
 
+ main
 # -----------------------------------
 # PLANTA (CON IMAGEN)
 # -----------------------------------
@@ -670,7 +694,9 @@ class Alga(Entidad):
 
     def dibujar(self, superficie):
         superficie.blit(self.imagen, (self.x, self.y))
+ sebastian
 
+ main
 # -----------------------------------
 # ÁRBOL
 # -----------------------------------
@@ -684,7 +710,9 @@ class Arbol(Entidad):
 
     def dibujar(self, superficie):
         superficie.blit(self.imagen, (self.x, self.y))
+ sebastian
 
+ main
 # -----------------------------------
 # NUEVO: CLASE CASA
 # -----------------------------------
@@ -698,7 +726,10 @@ class Casa(Entidad):
 
     def dibujar(self, superficie):
         superficie.blit(self.imagen, (self.x, self.y))
+ sebastian
 
+
+ main
 # -----------------------------------
 # LAGO
 # -----------------------------------
@@ -725,6 +756,8 @@ class Lago(Entidad):
     def dibujar(self, superficie):
         superficie.blit(self.imagen_orilla, (self.rect_orilla.x, self.rect_orilla.y))
         superficie.blit(self.imagen_agua, (self.rect_agua.x, self.rect_agua.y))
+ sebastian
+
 
 # -----------------------------------
 # PERSONA
@@ -1116,3 +1149,4 @@ while ejecutando:
     reloj.tick(FPS)
 
 pygame.quit()
+main
