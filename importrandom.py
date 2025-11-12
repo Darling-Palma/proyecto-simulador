@@ -3,9 +3,6 @@ import random
 import math
 import os
 
-# -----------------------------------
-# CONFIGURACIÓN INICIAL
-# -----------------------------------
 ANCHO, ALTO = 800, 600
 FPS = 20
 GROSOR_ORILLA = 20
@@ -40,10 +37,6 @@ IMAGEN_CORAZON_VACIO = None
 
 # ----------------------------------------------------
 
-
-# -----------------------------------
-# FUNCIONES ÚTILES
-# -----------------------------------
 def distancia(a, b):
     # --- CORREGIDO: Acepta objetos o diccionarios ---
     try:
@@ -578,10 +571,6 @@ class Mariposa(Animal):
         super().mover(target_x, target_y, ecosistema)
         self.envejecer()
         
-# -----------------------------------
-# DICCIONARIO PARA CREACIÓN DINÁMICA DE ANIMALES
-# (Necesario para el clic)
-# -----------------------------------
 CLASES_ANIMALES = {
     'Vaca': Vaca,
     'Gallina': Gallina,
@@ -621,7 +610,7 @@ class Huevo(Entidad):
         superficie.blit(texto, (self.x, self.y - 10))
 
 # -----------------------------------
-# PLANTA (CON IMAGEN)
+# PLANTA 
 # -----------------------------------
 class Planta(Entidad):
     def __init__(self, x, y):
@@ -635,7 +624,7 @@ class Planta(Entidad):
         superficie.blit(self.imagen, (self.x, self.y))
 
 # -----------------------------------
-# FLOR (NUEVA CLASE PARA DECORACIÓN)
+# FLOR 
 # -----------------------------------
 class Flor(Entidad):
     def __init__(self, x, y):
@@ -658,7 +647,7 @@ class Flor(Entidad):
         superficie.blit(self.imagen, (self.x, self.y))
 
 # -----------------------------------
-# ALGA (CON IMAGEN)
+# ALGA 
 # -----------------------------------
 class Alga(Entidad):
     def __init__(self, x, y):
