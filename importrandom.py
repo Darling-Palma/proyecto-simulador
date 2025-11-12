@@ -1,3 +1,46 @@
+import pygame
+import random
+import math
+import os
+
+# -----------------------------------
+# CONFIGURACIÓN INICIAL
+# -----------------------------------
+ANCHO, ALTO = 800, 600
+FPS = 20
+GROSOR_ORILLA = 20
+
+pygame.init()
+ventana = pygame.display.set_mode((ANCHO, ALTO))
+pygame.display.set_caption("Simulador de Ecosistema (Con Casa)")
+reloj = pygame.time.Clock()
+
+# --- Definición de rutas de imágenes ---
+try:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    BASE_DIR = os.getcwd()
+IMAGES_DIR = os.path.join(BASE_DIR, "imagenes")
+# ----------------------------------------------
+
+# --- Nuevas configuraciones para Corazones y Botón ---
+ESTADO_JUEGO = "MENU" # Nuevo estado para el control del juego
+COLOR_MENU = (100, 100, 100)
+COLOR_BOTON = (0, 200, 0)
+COLOR_TEXTO = (255, 255, 255)
+FUENTE_GRANDE = pygame.font.SysFont(None, 48)
+FUENTE_MEDIANA = pygame.font.SysFont(None, 32)
+fuente_nombre = pygame.font.SysFont(None, 16) # Fuente para nombres
+
+# Cargar imagen de corazón (rojo/roto para simplificación)
+TAMANO_CORAZON = 10
+USAR_IMAGEN_CORAZON = False
+IMAGEN_CORAZON_LLENO = None
+IMAGEN_CORAZON_VACIO = None
+
+# ----------------------------------------------------
+
+
 # -----------------------------------
 # FUNCIONES ÚTILES
 # -----------------------------------
@@ -29,6 +72,31 @@ def cargar_imagen_segura(ruta, tam=(40, 40), color=(200, 200, 200), flip_horizon
         surf = pygame.Surface(tam) 
         surf.fill(color)
         return surf
+
+# --- Carga de Corazones (movida aquí después de definir la función) ---
+try:
+    RUTA_CORAZON_LLENO = os.path.join(IMAGES_DIR, "corazon_lleno.png")
+    RUTA_CORAZON_VACIO = os.path.join(IMAGES_DIR, "corazon_vacio.png")
+    IMAGEN_CORAZON_LLENO = cargar_imagen_segura(RUTA_CORAZON_LLENO, tam=(TAMANO_CORAZON, TAMANO_CORAZON), color=(255, 0, 0))
+    IMAGEN_CORAZON_VACIO = cargar_imagen_segura(RUTA_CORAZON_VACIO, tam=(TAMANO_CORAZON, TAMANO_CORAZON), color=(50, 0, 0))
+    # Comprobar si la carga fue exitosa (si no, devuelve un Surface con color)
+    if IMAGEN_CORAZON_LLENO.get_width() == TAMANO_CORAZON: # Un chequeo simple
+        USAR_IMAGEN_CORAZON = True
+except Exception:
+    USAR_IMAGEN_CORAZON = False
+# -----------------------------------------------------------------
+
+# --- NUEVO: Cargar fondos ---
+try:
+    FONDO_JUEGO = cargar_imagen_segura(os.path.join(IMAGES_DIR, "fondo.png"), tam=(ANCHO, ALTO))
+except Exception:
+    FONDO_JUEGO = pygame.Surface((ANCHO, ALTO)); FONDO_JUEGO.fill((135, 206, 235))
+
+try:
+    FONDO_MENU = cargar_imagen_segura(os.path.join(IMAGES_DIR, "menu_fondo.png"), tam=(ANCHO, ALTO))
+except Exception:
+    FONDO_MENU = pygame.Surface((ANCHO, ALTO)); FONDO_MENU.fill(COLOR_MENU)
+# ----------------------------
 
 def normalizar_vector(dx, dy):
     # Corrección: math.sqrt(dx**2 + dy**2)
@@ -81,6 +149,29 @@ def generar_spawn_cerca(punto_x, punto_y, obstaculos_rects, tamano_entidad, radi
     print("[WARN] No se pudo encontrar un spawn seguro cerca del punto, usando spawn aleatorio.")
     return generar_spawn_seguro(obstaculos_rects, tamano_entidad)
 
+# --- Nueva función para dibujar corazones ---
+def dibujar_corazones(superficie, x, y, vida_porcentaje, max_corazones=3):
+    """Dibuja corazones para representar la vida."""
+    corazones_llenos = math.ceil(vida_porcentaje / 100 * max_corazones)
+    
+    start_x = x + 35 // 2 - (max_corazones * TAMANO_CORAZON + (max_corazones - 1) * 2) // 2
+    
+    for i in range(max_corazones):
+        corazon_x = start_x + i * (TAMANO_CORAZON + 2)
+        corazon_y = y - 8 - TAMANO_CORAZON
+        
+        if i < corazones_llenos:
+            if USAR_IMAGEN_CORAZON:
+                superficie.blit(IMAGEN_CORAZON_LLENO, (corazon_x, corazon_y))
+            else:
+                pygame.draw.circle(superficie, (255, 0, 0), (corazon_x + TAMANO_CORAZON // 2, corazon_y + TAMANO_CORAZON // 2), TAMANO_CORAZON // 2)
+        else:
+            if USAR_IMAGEN_CORAZON:
+                superficie.blit(IMAGEN_CORAZON_VACIO, (corazon_x, corazon_y)) # CORRECCIÓN: Usar corazon_x, corazon_y sin desplazamiento
+            else:
+                pygame.draw.circle(superficie, (50, 0, 0), (corazon_x + TAMANO_CORAZON // 2, corazon_y + TAMANO_CORAZON // 2), TAMANO_CORAZON // 2)
+                pygame.draw.circle(superficie, (255, 255, 255), (corazon_x + TAMANO_CORAZON // 2, corazon_y + TAMANO_CORAZON // 2), TAMANO_CORAZON // 2, 1)
+
 # -----------------------------------
 # CLASES BASE
 # -----------------------------------
@@ -105,7 +196,7 @@ class Animal(Entidad):
         self.tamano = 35
         self.reproduccion_contador = random.randint(200, 400)
         
-        # --- LÓGICA DE GIRO --- (La carga es lógica)
+        # --- LÓGICA DE GIRO ---
         imagen_base = cargar_imagen_segura(imagen_path, tam=(self.tamano, self.tamano))
         
         if default_face_left:
@@ -124,7 +215,8 @@ class Animal(Entidad):
         self.target_y = random.randint(0, ALTO)
         self.cambio_objetivo_timer = random.randint(60, 180)
 
-def mover(self, target_x, target_y, ecosistema):
+
+    def mover(self, target_x, target_y, ecosistema):
         if target_x is None or target_y is None:
             self.cambio_objetivo_timer -= 1
             obj_simple = {'x': self.target_x, 'y': self.target_y}
@@ -142,7 +234,7 @@ def mover(self, target_x, target_y, ecosistema):
         if abs(dx_raw) < self.velocidad / 2 and abs(dy_raw) < self.velocidad / 2:
             return
 
-        # --- LÓGICA DE GIRO CORREGIDA (Lógica de decisión) ---
+        # --- LÓGICA DE GIRO CORREGIDA ---
         if dx_raw < 0 and not self.mirando_izquierda:
             self.imagen = self.imagen_original_izquierda
             self.mirando_izquierda = True
@@ -155,7 +247,7 @@ def mover(self, target_x, target_y, ecosistema):
         move_x = ndx * self.velocidad
         move_y = ndy * self.velocidad
 
-if ecosistema.lago:
+        if ecosistema.lago:
             obstaculos_rects = [ecosistema.lago.rect_orilla]
             for arbol in ecosistema.arboles:
                 obstaculos_rects.append(arbol.rect)
@@ -185,15 +277,16 @@ if ecosistema.lago:
             self.x = max(0, min(ANCHO - self.tamano, self.x))
             self.y = max(0, min(ALTO - self.tamano, self.y))
 
-def envejecer(self):
+    def envejecer(self):
         self.vida -= random.uniform(0.01, 0.04)
 
     def esta_vivo(self):
         return self.vida > 0
 
     def dibujar(self, superficie):
-        # ... Este código es de Sebastian (Visual), pero la clase lo necesita para funcionar. ...
+        # *** AGREGADO PARA EL CLIC: Definir el rect ***
         self.rect = self.imagen.get_rect(topleft=(self.x, self.y)) 
+        # **********************************************
         superficie.blit(self.imagen, (self.x, self.y))
         dibujar_corazones(superficie, self.x, self.y, self.vida)
         texto_nombre = fuente_nombre.render(self.nombre, True, (0, 0, 0))
@@ -205,7 +298,6 @@ def envejecer(self):
 # -----------------------------------
 # CLASES DE ANIMALES
 # -----------------------------------
-
 class Vaca(Animal):
     def __init__(self, x, y):
         ruta_img = os.path.join(IMAGES_DIR, "vaca.png")
@@ -354,8 +446,8 @@ class Pez(Animal):
         lago_agua_rect = ecosistema.lago.rect_agua
         self.x = max(lago_agua_rect.x, min(self.x, lago_agua_rect.right - self.tamano))
         self.y = max(lago_agua_rect.y, min(self.y, lago_agua_rect.bottom - self.tamano))
-
-def actualizar(self, ecosistema):
+        
+    def actualizar(self, ecosistema):
         algas_cercanas = ecosistema.algas
         target_x, target_y = None, None
         
@@ -401,36 +493,6 @@ class Oso(Animal):
         super().mover(target_x, target_y, ecosistema)
         self.envejecer()
 
-class Oso(Animal):
-    def __init__(self, x, y):
-        ruta_img = os.path.join(IMAGES_DIR, "oso.png")
-        super().__init__("Oso", "omnívoro", x, y, ruta_img, default_face_left=True)
-        self.velocidad = random.randint(1, 2)
-
-    def actualizar(self, ecosistema):
-        presas = [a for a in ecosistema.animales if isinstance(a, Gallina) and a.esta_vivo()]
-        plantas = ecosistema.plantas
-        target_x, target_y = None, None
-        
-        if self.vida < 90:
-            if presas and random.random() < 0.5:
-                objetivo = min(presas, key=lambda p: distancia(self, p))
-                if distancia(self, objetivo) < 18:
-                    objetivo.vida = 0
-                    self.vida = min(100, self.vida + 15)
-                else:
-                    target_x, target_y = objetivo.x, objetivo.y
-            elif plantas:
-                objetivo = min(plantas, key=lambda p: distancia(self, p))
-                if distancia(self, objetivo) < 15:
-                    ecosistema.plantas.remove(objetivo)
-                    self.vida = min(100, self.vida + 10)
-                else:
-                    target_x, target_y = objetivo.x, objetivo.y
-        
-        super().mover(target_x, target_y, ecosistema)
-        self.envejecer()  
-
 class Cerdo(Animal):
     def __init__(self, x, y):
         ruta_img = os.path.join(IMAGES_DIR, "cerdo.png")
@@ -472,7 +534,7 @@ class Lobo(Animal):
                 target_x, target_y = objetivo.x, objetivo.y
         
         super().mover(target_x, target_y, ecosistema)
-        self.envejecer()                                                          
+        self.envejecer()
 
 class Rana(Animal):
     def __init__(self, x, y):
@@ -519,8 +581,7 @@ class Mariposa(Animal):
 # -----------------------------------
 # DICCIONARIO PARA CREACIÓN DINÁMICA DE ANIMALES
 # (Necesario para el clic)
-# -----------------------------------                                                  
-
+# -----------------------------------
 CLASES_ANIMALES = {
     'Vaca': Vaca,
     'Gallina': Gallina,
@@ -537,7 +598,6 @@ CLASES_ANIMALES = {
 # -----------------------------------
 # HUEVO
 # -----------------------------------
-
 class Huevo(Entidad):
     def __init__(self, x, y):
         super().__init__(x, y)
@@ -561,6 +621,112 @@ class Huevo(Entidad):
         superficie.blit(texto, (self.x, self.y - 10))
 
 # -----------------------------------
+# PLANTA (CON IMAGEN)
+# -----------------------------------
+class Planta(Entidad):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.tamano = 15
+        ruta_img = os.path.join(IMAGES_DIR, "planta.png")
+        self.imagen = cargar_imagen_segura(ruta_img, tam=(self.tamano, self.tamano), color=(34, 139, 34))
+        self.rect = pygame.Rect(x - self.tamano // 2, y - self.tamano // 2, self.tamano, self.tamano)
+
+    def dibujar(self, superficie):
+        superficie.blit(self.imagen, (self.x, self.y))
+
+# -----------------------------------
+# FLOR (NUEVA CLASE PARA DECORACIÓN)
+# -----------------------------------
+class Flor(Entidad):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        flor_options = {
+            "flor_roja.png": (15, 20), 
+            "flor_azul.png": (30, 30),
+            "flor_amarilla.png": (15, 20)
+        }
+        
+        flor_elegida = random.choice(list(flor_options.keys()))
+        tamano_elegido = flor_options[flor_elegida]
+        
+        self.tamano = max(tamano_elegido)
+        ruta_img = os.path.join(IMAGES_DIR, flor_elegida)
+        self.imagen = cargar_imagen_segura(ruta_img, tam=tamano_elegido, color=(255, 100, 100))
+        self.rect = pygame.Rect(x - self.tamano // 2, y - self.tamano // 2, tamano_elegido[0], tamano_elegido[1])
+
+    def dibujar(self, superficie):
+        superficie.blit(self.imagen, (self.x, self.y))
+
+# -----------------------------------
+# ALGA (CON IMAGEN)
+# -----------------------------------
+class Alga(Entidad):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.tamano = 12
+        ruta_img = os.path.join(IMAGES_DIR, "alga.png")
+        self.imagen = cargar_imagen_segura(ruta_img, tam=(self.tamano, self.tamano), color=(40, 120, 50))
+        self.rect = pygame.Rect(x - self.tamano // 2, y - self.tamano // 2, self.tamano, self.tamano)
+
+    def dibujar(self, superficie):
+        superficie.blit(self.imagen, (self.x, self.y))
+
+# -----------------------------------
+# ÁRBOL
+# -----------------------------------
+class Arbol(Entidad):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.tamano = 40
+        ruta_img = os.path.join(IMAGES_DIR, "arbol.png")
+        self.imagen = cargar_imagen_segura(ruta_img, tam=(self.tamano, self.tamano), color=(139, 69, 19))
+        self.rect = pygame.Rect(x, y, self.tamano, self.tamano)
+
+    def dibujar(self, superficie):
+        superficie.blit(self.imagen, (self.x, self.y))
+
+# -----------------------------------
+# NUEVO: CLASE CASA
+# -----------------------------------
+class Casa(Entidad):
+    def __init__(self, x, y, tamano=60):
+        super().__init__(x, y)
+        self.tamano = tamano
+        ruta_img = os.path.join(IMAGES_DIR, "casa.png")
+        self.imagen = cargar_imagen_segura(ruta_img, tam=(self.tamano, self.tamano), color=(160, 82, 45)) # Color sienna
+        self.rect = pygame.Rect(x, y, self.tamano, self.tamano)
+
+    def dibujar(self, superficie):
+        superficie.blit(self.imagen, (self.x, self.y))
+
+# -----------------------------------
+# LAGO
+# -----------------------------------
+class Lago(Entidad):
+    def __init__(self, x, y, ancho, alto):
+        super().__init__(x, y)
+        
+        self.rect_orilla = pygame.Rect(x, y, ancho, alto) 
+        self.rect_agua = pygame.Rect(
+            x + GROSOR_ORILLA, 
+            y + GROSOR_ORILLA, 
+            ancho - GROSOR_ORILLA * 2, 
+            alto - GROSOR_ORILLA * 2
+        )
+
+        ruta_orilla = os.path.join(IMAGES_DIR, "orilla.png")
+        color_fondo_orilla = (210, 180, 140)
+        self.imagen_orilla = cargar_imagen_segura(ruta_orilla, tam=(ancho, alto), color=color_fondo_orilla)
+
+        ruta_agua = os.path.join(IMAGES_DIR, "lago.png")
+        color_fondo_agua = (0, 0, 139)
+        self.imagen_agua = cargar_imagen_segura(ruta_agua, tam=(self.rect_agua.width, self.rect_agua.height), color=color_fondo_agua)
+
+    def dibujar(self, superficie):
+        superficie.blit(self.imagen_orilla, (self.rect_orilla.x, self.rect_orilla.y))
+        superficie.blit(self.imagen_agua, (self.rect_agua.x, self.rect_agua.y))
+
+# -----------------------------------
 # PERSONA
 # -----------------------------------
 class Persona(Entidad):
@@ -569,7 +735,7 @@ class Persona(Entidad):
         ruta_img = os.path.join(IMAGES_DIR, "persona.png")
         self.tamano = 35
         
-        # --- LÓGICA DE GIRO (Asignación) ---
+        # --- LÓGICA DE GIRO ---
         # Asumimos que la imagen de persona mira a la derecha
         self.imagen_original_derecha = cargar_imagen_segura(ruta_img, tam=(self.tamano, self.tamano))
         self.imagen_original_izquierda = pygame.transform.flip(self.imagen_original_derecha, True, False)
@@ -580,7 +746,8 @@ class Persona(Entidad):
         self.velocidad = 5
         self.inventario = {"leche": 0, "huevos": 0}
 
-def mover(self, teclas, ecosistema):
+
+    def mover(self, teclas, ecosistema):
         target_x_offset, target_y_offset = 0, 0
 
         if teclas[pygame.K_LEFT] or teclas[pygame.K_a]:
@@ -592,7 +759,7 @@ def mover(self, teclas, ecosistema):
         if teclas[pygame.K_DOWN] or teclas[pygame.K_s]:
             target_y_offset += self.velocidad
         
-        # --- Lógica de giro de imagen para Persona (decisión de giro) ---
+        # --- Lógica de giro de imagen para Persona ---
         if target_x_offset < 0 and not self.mirando_izquierda:
             self.imagen = self.imagen_original_izquierda
             self.mirando_izquierda = True
@@ -611,7 +778,7 @@ def mover(self, teclas, ecosistema):
         move_x = target_x_offset
         move_y = target_y_offset
 
-if move_x != 0 or move_y != 0:
+        if move_x != 0 or move_y != 0:
             obstaculos_rects = [ecosistema.lago.rect_orilla]
             for arbol in ecosistema.arboles:
                 obstaculos_rects.append(arbol.rect)
@@ -636,7 +803,7 @@ if move_x != 0 or move_y != 0:
         self.x = max(0, min(ANCHO - self.tamano, self.x))
         self.y = max(0, min(ALTO - self.tamano, self.y))
 
-def recoger(self, ecosistema):
+    def recoger(self, ecosistema):
         for animal in ecosistema.animales:
             if isinstance(animal, Vaca) and distancia(self, animal) < 30 and animal.leche > 0:
                 self.inventario["leche"] += animal.leche
@@ -647,7 +814,6 @@ def recoger(self, ecosistema):
                 self.inventario["huevos"] += 1
 
     def dibujar(self, superficie):
-        # ... Este código es de Sebastian (Visual), pero la clase lo necesita para funcionar. ...
         superficie.blit(self.imagen, (self.x, self.y))
         texto_nombre = fuente_nombre.render("Persona", True, (0, 0, 0))
         
@@ -658,8 +824,6 @@ def recoger(self, ecosistema):
 # -----------------------------------
 # ECOSISTEMA
 # -----------------------------------
-
-
 class Ecosistema:
     def __init__(self):
         self.animales = []
@@ -670,8 +834,8 @@ class Ecosistema:
         self.flores = []
         self.casa = None
         
-        self.lago = Lago(x=500, y=350, ancho=250, alto=200) # Lago, Casa, etc. deben estar definidos
-        self.fondo = FONDO_JUEGO # FONDO_JUEGO debe estar definido
+        self.lago = Lago(x=500, y=350, ancho=250, alto=200)
+        self.fondo = FONDO_JUEGO
 
     def agregar_animal(self, animal):
         self.animales.append(animal)
@@ -688,7 +852,7 @@ class Ecosistema:
     def agregar_casa(self, casa):
         self.casa = casa
 
-def actualizar(self):
+    def actualizar(self):
         for animal in self.animales:
             animal.actualizar(self)
         for huevo in self.huevos[:]:
@@ -711,7 +875,6 @@ def actualizar(self):
             self.algas.append(Alga(x, y))
 
     def dibujar(self, superficie):
-        # ... Este código es de Sebastian (Visual), pero la clase lo necesita para funcionar. ...
         superficie.blit(self.fondo, (0, 0))
         self.lago.dibujar(superficie)
         
@@ -727,18 +890,18 @@ def actualizar(self):
         for flor in self.flores:
             flor.dibujar(superficie)
         for animal in self.animales:
-            animal.dibujar(superficie) 
+            animal.dibujar(superficie) # El método dibujar de Animal ya define self.rect
 
 # -----------------------------------
 # CREAR MUNDO
 # -----------------------------------
-
 def crear_mundo():
     global persona
     
     ecosistema = Ecosistema()
 
     lago_orilla_rect = ecosistema.lago.rect_orilla
+    lago_agua_rect = ecosistema.lago.rect_agua
     tamano_animal_std = 35
     tamano_persona = 35
     tamano_arbol = 40
@@ -764,9 +927,7 @@ def crear_mundo():
     spawn_x, spawn_y = generar_spawn_cerca(spawn_cerca_x, spawn_cerca_y, obstaculos_totales, tamano_persona, radio_max=70)
     persona = Persona(spawn_x, spawn_y)
 
-# Animales terrestres
-    lago_agua_rect = ecosistema.lago.rect_agua
-
+    # Animales terrestres
     for _ in range(3):
         x, y = generar_spawn_seguro(obstaculos_totales, tamano_animal_std)
         ecosistema.agregar_animal(Vaca(x, y))
@@ -830,7 +991,6 @@ MODO_SPAWN_ACTIVO = False
 # FUNCIONES DE MENÚ
 # -----------------------------------
 def dibujar_menu(superficie):
-    # ... Este código es de Sebastian (Visual), pero se necesita el cuerpo de la función ...
     superficie.blit(FONDO_MENU, (0, 0))
     
     # Título
@@ -844,7 +1004,7 @@ def dibujar_menu(superficie):
     # Botón de inicio
     boton_ancho, boton_alto = 200, 70
     boton_x = ANCHO // 2 - boton_ancho // 2
-    boton_y = ALTO // 2
+    boton_y = ALTO // 2 # Centrado verticalmente
     
     boton_rect = pygame.Rect(boton_x, boton_y, boton_ancho, boton_alto)
     pygame.draw.rect(superficie, COLOR_BOTON, boton_rect, border_radius=10)
@@ -930,7 +1090,7 @@ while ejecutando:
                 if evento.button == 1: 
                     manejar_clic_animal(evento.pos)
 
-if ESTADO_JUEGO == "JUGANDO":
+    if ESTADO_JUEGO == "JUGANDO":
         teclas = pygame.key.get_pressed()
         persona.mover(teclas, ecosistema)
         
@@ -955,8 +1115,4 @@ if ESTADO_JUEGO == "JUGANDO":
     pygame.display.flip()
     reloj.tick(FPS)
 
-Darling
 pygame.quit()
-if __name__ == "__main__":
-    main()
- main
