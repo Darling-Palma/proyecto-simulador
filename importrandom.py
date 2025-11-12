@@ -280,3 +280,77 @@ class Zorro(Animal):
         
         super().mover(target_x, target_y, ecosistema)
         self.envejecer()
+
+class Caballo(Animal):
+    def __init__(self, x, y):
+        ruta_img = os.path.join(IMAGES_DIR, "caballo.png")
+        super().__init__("Caballo", "herbivoro", x, y, ruta_img, default_face_left=True)
+        self.velocidad = random.randint(2, 4)
+
+    def actualizar(self, ecosistema):
+        plantas = ecosistema.plantas
+        target_x, target_y = None, None
+        
+        if self.vida < 90 and plantas:
+            objetivo = min(plantas, key=lambda p: distancia(self, p))
+            if distancia(self, objetivo) < 15:
+                ecosistema.plantas.remove(objetivo)
+                self.vida = min(100, self.vida + 15)
+            else:
+                target_x, target_y = objetivo.x, objetivo.y
+        
+        super().mover(target_x, target_y, ecosistema)
+        self.envejecer()
+        
+        self.reproduccion_contador -= 1
+        if self.reproduccion_contador <= 0:
+            if random.random() < 0.08:
+                obstaculos = [ecosistema.lago.rect_orilla] + [a.rect for a in ecosistema.arboles]
+                if ecosistema.casa: obstaculos.append(ecosistema.casa.rect)
+                x, y = generar_spawn_seguro(obstaculos, self.tamano)
+                ecosistema.agregar_animal(Caballo(x, y))
+            self.reproduccion_contador = random.randint(300, 500)
+
+class Pez(Animal):
+    def __init__(self, x, y):
+        ruta_img = os.path.join(IMAGES_DIR, "pez.png")
+        super().__init__("Pez", "herbivoro", x, y, ruta_img, default_face_left=True)
+        self.velocidad = random.randint(1, 2)
+        self.target_x = x
+        self.target_y = y
+        self.cambio_objetivo_timer = random.randint(60, 180)
+
+    def mover(self, target_x, target_y, ecosistema):
+        if target_x is None or target_y is None:
+            self.cambio_objetivo_timer -= 1
+            obj_simple = {'x': self.target_x, 'y': self.target_y}
+            if self.cambio_objetivo_timer <= 0 or distancia(self, obj_simple) < self.velocidad:
+                lago_agua_rect = ecosistema.lago.rect_agua
+                self.target_x = random.randint(lago_agua_rect.x, lago_agua_rect.right - self.tamano)
+                self.target_y = random.randint(lago_agua_rect.y, lago_agua_rect.bottom - self.tamano)
+                self.cambio_objetivo_timer = random.randint(60, 180)
+            target_x, target_y = self.target_x, self.target_y
+
+        dx_raw = target_x - self.x
+        dy_raw = target_y - self.y
+
+        if abs(dx_raw) < self.velocidad / 2 and abs(dy_raw) < self.velocidad / 2:
+            return
+
+        if dx_raw < 0 and not self.mirando_izquierda:
+            self.imagen = self.imagen_original_izquierda
+            self.mirando_izquierda = True
+        elif dx_raw > 0 and self.mirando_izquierda:
+            self.imagen = self.imagen_original_derecha
+            self.mirando_izquierda = False
+            
+        ndx, ndy = normalizar_vector(dx_raw, dy_raw)
+        move_x = ndx * self.velocidad
+        move_y = ndy * self.velocidad
+
+        self.x += move_x
+        self.y += move_y
+
+        lago_agua_rect = ecosistema.lago.rect_agua
+        self.x = max(lago_agua_rect.x, min(self.x, lago_agua_rect.right - self.tamano))
+        self.y = max(lago_agua_rect.y, min(self.y, lago_agua_rect.bottom - self.tamano))
