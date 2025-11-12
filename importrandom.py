@@ -162,3 +162,16 @@ class Alga(Entidad):
 
     def dibujar(self, superficie):
         superficie.blit(self.imagen, (self.x, self.y))
+# -----------------------------------
+# ÁRBOL
+# -----------------------------------
+class Arbol(Entidad):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.tamano = 40
+        ruta_img = os.path.join(IMAGES_DIR, "arbol.png")
+        self.imagen = cargar_imagen_segura(ruta_img, tam=(self.tamano, self.tamano), color=(139, 69, 19))
+        self.rect = pygame.Rect(x, y, self.tamano, self.tamano)
+
+    def dibujar(self, superficie):
+        superficie.blit(self.imagen, (self.x, self.y))
