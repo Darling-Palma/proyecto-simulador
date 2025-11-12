@@ -955,4 +955,8 @@ if ESTADO_JUEGO == "JUGANDO":
     pygame.display.flip()
     reloj.tick(FPS)
 
+Darling
 pygame.quit()
+if __name__ == "__main__":
+    main()
+ main
