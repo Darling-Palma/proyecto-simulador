@@ -123,3 +123,85 @@ class Animal(Entidad):
         self.target_x = random.randint(0, ANCHO)
         self.target_y = random.randint(0, ALTO)
         self.cambio_objetivo_timer = random.randint(60, 180)
+
+def mover(self, target_x, target_y, ecosistema):
+        if target_x is None or target_y is None:
+            self.cambio_objetivo_timer -= 1
+            obj_simple = {'x': self.target_x, 'y': self.target_y}
+            if self.cambio_objetivo_timer <= 0 or distancia(self, obj_simple) < self.velocidad:
+                self.target_x = random.randint(0, ANCHO)
+                self.target_y = random.randint(0, ALTO)
+                self.cambio_objetivo_timer = random.randint(60, 180)
+            
+            target_x = self.target_x
+            target_y = self.target_y
+
+        dx_raw = target_x - self.x
+        dy_raw = target_y - self.y
+
+        if abs(dx_raw) < self.velocidad / 2 and abs(dy_raw) < self.velocidad / 2:
+            return
+
+        # --- LÓGICA DE GIRO CORREGIDA (Lógica de decisión) ---
+        if dx_raw < 0 and not self.mirando_izquierda:
+            self.imagen = self.imagen_original_izquierda
+            self.mirando_izquierda = True
+        elif dx_raw > 0 and self.mirando_izquierda:
+            self.imagen = self.imagen_original_derecha
+            self.mirando_izquierda = False
+        # -------------------------------
+
+        ndx, ndy = normalizar_vector(dx_raw, dy_raw)
+        move_x = ndx * self.velocidad
+        move_y = ndy * self.velocidad
+
+if ecosistema.lago:
+            obstaculos_rects = [ecosistema.lago.rect_orilla]
+            for arbol in ecosistema.arboles:
+                obstaculos_rects.append(arbol.rect)
+            if ecosistema.casa:
+                obstaculos_rects.append(ecosistema.casa.rect)
+
+            futuro_rect_x = pygame.Rect(self.x + move_x, self.y, self.tamano, self.tamano)
+            for obstaculo in obstaculos_rects:
+                if futuro_rect_x.colliderect(obstaculo):
+                    if not isinstance(self, (Rana, Pez)): 
+                        move_x = 0
+                        self.cambio_objetivo_timer = 0
+                        break
+
+            futuro_rect_y = pygame.Rect(self.x, self.y + move_y, self.tamano, self.tamano)
+            for obstaculo in obstaculos_rects:
+                if futuro_rect_y.colliderect(obstaculo):
+                    if not isinstance(self, (Rana, Pez)):
+                        move_y = 0
+                        self.cambio_objetivo_timer = 0
+                        break
+        
+        self.x += move_x
+        self.y += move_y
+        
+        if not isinstance(self, Pez):
+            self.x = max(0, min(ANCHO - self.tamano, self.x))
+            self.y = max(0, min(ALTO - self.tamano, self.y))
+
+def envejecer(self):
+        self.vida -= random.uniform(0.01, 0.04)
+
+    def esta_vivo(self):
+        return self.vida > 0
+
+    def dibujar(self, superficie):
+        # ... Este código es de Sebastian (Visual), pero la clase lo necesita para funcionar. ...
+        self.rect = self.imagen.get_rect(topleft=(self.x, self.y)) 
+        superficie.blit(self.imagen, (self.x, self.y))
+        dibujar_corazones(superficie, self.x, self.y, self.vida)
+        texto_nombre = fuente_nombre.render(self.nombre, True, (0, 0, 0))
+        
+        texto_rect = texto_nombre.get_rect(centerx=self.x + self.tamano // 2)
+        texto_rect.y = self.y + self.tamano + 2
+        superficie.blit(texto_nombre, texto_rect)
+
+# -----------------------------------
+# CLASES DE ANIMALES
+# -----------------------------------
