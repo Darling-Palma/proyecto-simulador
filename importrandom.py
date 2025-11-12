@@ -537,3 +537,422 @@ CLASES_ANIMALES = {
 # -----------------------------------
 # HUEVO
 # -----------------------------------
+
+class Huevo(Entidad):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.tiempo = random.randint(200, 400)
+        self.tamano = 8
+        self.color = (255, 255, 200)
+
+    def actualizar(self, ecosistema):
+        self.tiempo -= 1
+        if self.tiempo <= 0:
+            obstaculos = [ecosistema.lago.rect_orilla] + [a.rect for a in ecosistema.arboles]
+            if ecosistema.casa: obstaculos.append(ecosistema.casa.rect)
+            x, y = generar_spawn_seguro(obstaculos, 35)
+            ecosistema.agregar_animal(Gallina(x, y))
+            if self in ecosistema.huevos:
+                ecosistema.huevos.remove(self)
+
+    def dibujar(self, superficie):
+        pygame.draw.ellipse(superficie, self.color, (self.x, self.y, self.tamano, self.tamano + 5))
+        texto = fuente_nombre.render("Huevo", True, (0, 0, 0))
+        superficie.blit(texto, (self.x, self.y - 10))
+
+# -----------------------------------
+# PERSONA
+# -----------------------------------
+class Persona(Entidad):
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        ruta_img = os.path.join(IMAGES_DIR, "persona.png")
+        self.tamano = 35
+        
+        # --- LÓGICA DE GIRO (Asignación) ---
+        # Asumimos que la imagen de persona mira a la derecha
+        self.imagen_original_derecha = cargar_imagen_segura(ruta_img, tam=(self.tamano, self.tamano))
+        self.imagen_original_izquierda = pygame.transform.flip(self.imagen_original_derecha, True, False)
+        self.imagen = self.imagen_original_derecha
+        self.mirando_izquierda = False
+        # ----------------------------
+
+        self.velocidad = 5
+        self.inventario = {"leche": 0, "huevos": 0}
+
+def mover(self, teclas, ecosistema):
+        target_x_offset, target_y_offset = 0, 0
+
+        if teclas[pygame.K_LEFT] or teclas[pygame.K_a]:
+            target_x_offset -= self.velocidad
+        if teclas[pygame.K_RIGHT] or teclas[pygame.K_d]:
+            target_x_offset += self.velocidad
+        if teclas[pygame.K_UP] or teclas[pygame.K_w]:
+            target_y_offset -= self.velocidad
+        if teclas[pygame.K_DOWN] or teclas[pygame.K_s]:
+            target_y_offset += self.velocidad
+        
+        # --- Lógica de giro de imagen para Persona (decisión de giro) ---
+        if target_x_offset < 0 and not self.mirando_izquierda:
+            self.imagen = self.imagen_original_izquierda
+            self.mirando_izquierda = True
+        elif target_x_offset > 0 and self.mirando_izquierda:
+            self.imagen = self.imagen_original_derecha
+            self.mirando_izquierda = False
+        # -------------------------------------------
+
+        # Normalizar el movimiento si se mueve en diagonal para que no vaya más rápido
+        if target_x_offset != 0 and target_y_offset != 0:
+            # Corrección: **2 en lugar de *2
+            factor = self.velocidad / math.sqrt(target_x_offset**2 + target_y_offset**2)
+            target_x_offset *= factor
+            target_y_offset *= factor
+
+        move_x = target_x_offset
+        move_y = target_y_offset
+
+if move_x != 0 or move_y != 0:
+            obstaculos_rects = [ecosistema.lago.rect_orilla]
+            for arbol in ecosistema.arboles:
+                obstaculos_rects.append(arbol.rect)
+            if ecosistema.casa:
+                obstaculos_rects.append(ecosistema.casa.rect)
+
+            futuro_rect_x = pygame.Rect(self.x + move_x, self.y, self.tamano, self.tamano)
+            for obstaculo in obstaculos_rects:
+                if futuro_rect_x.colliderect(obstaculo):
+                    move_x = 0
+                    break
+
+            futuro_rect_y = pygame.Rect(self.x, self.y + move_y, self.tamano, self.tamano)
+            for obstaculo in obstaculos_rects:
+                if futuro_rect_y.colliderect(obstaculo):
+                    move_y = 0
+                    break
+            
+            self.x += move_x
+            self.y += move_y
+
+        self.x = max(0, min(ANCHO - self.tamano, self.x))
+        self.y = max(0, min(ALTO - self.tamano, self.y))
+
+def recoger(self, ecosistema):
+        for animal in ecosistema.animales:
+            if isinstance(animal, Vaca) and distancia(self, animal) < 30 and animal.leche > 0:
+                self.inventario["leche"] += animal.leche
+                animal.leche = 0
+        for huevo in ecosistema.huevos[:]:
+            if distancia(self, huevo) < 25:
+                ecosistema.huevos.remove(huevo)
+                self.inventario["huevos"] += 1
+
+    def dibujar(self, superficie):
+        # ... Este código es de Sebastian (Visual), pero la clase lo necesita para funcionar. ...
+        superficie.blit(self.imagen, (self.x, self.y))
+        texto_nombre = fuente_nombre.render("Persona", True, (0, 0, 0))
+        
+        texto_rect = texto_nombre.get_rect(centerx=self.x + self.tamano // 2)
+        texto_rect.y = self.y + self.tamano + 2
+        superficie.blit(texto_nombre, texto_rect)
+
+# -----------------------------------
+# ECOSISTEMA
+# -----------------------------------
+
+
+class Ecosistema:
+    def __init__(self):
+        self.animales = []
+        self.plantas = []
+        self.huevos = []
+        self.algas = []
+        self.arboles = []
+        self.flores = []
+        self.casa = None
+        
+        self.lago = Lago(x=500, y=350, ancho=250, alto=200) # Lago, Casa, etc. deben estar definidos
+        self.fondo = FONDO_JUEGO # FONDO_JUEGO debe estar definido
+
+    def agregar_animal(self, animal):
+        self.animales.append(animal)
+
+    def agregar_planta(self, planta):
+        self.plantas.append(planta)
+
+    def agregar_arbol(self, arbol):
+        self.arboles.append(arbol)
+        
+    def agregar_flor(self, flor):
+        self.flores.append(flor)
+        
+    def agregar_casa(self, casa):
+        self.casa = casa
+
+def actualizar(self):
+        for animal in self.animales:
+            animal.actualizar(self)
+        for huevo in self.huevos[:]:
+            huevo.actualizar(self)
+        
+        self.animales = [a for a in self.animales if a.esta_vivo()]
+        
+        obstaculos_spawn = [self.lago.rect_orilla] + [a.rect for a in self.arboles]
+        if self.casa:
+            obstaculos_spawn.append(self.casa.rect)
+        
+        if random.random() < 0.25: 
+            x, y = generar_spawn_seguro(obstaculos_spawn, Planta(0,0).tamano)
+            self.plantas.append(Planta(x, y))
+            
+        if random.random() < 0.05:
+            lago_agua = self.lago.rect_agua
+            x = random.randint(lago_agua.x, lago_agua.right - Alga(0,0).tamano)
+            y = random.randint(lago_agua.y, lago_agua.bottom - Alga(0,0).tamano)
+            self.algas.append(Alga(x, y))
+
+    def dibujar(self, superficie):
+        # ... Este código es de Sebastian (Visual), pero la clase lo necesita para funcionar. ...
+        superficie.blit(self.fondo, (0, 0))
+        self.lago.dibujar(superficie)
+        
+        if self.casa:
+            self.casa.dibujar(superficie)
+        
+        for arbol in self.arboles:
+            arbol.dibujar(superficie)
+        for alga in self.algas:
+            alga.dibujar(superficie)
+        for planta in self.plantas:
+            planta.dibujar(superficie)
+        for flor in self.flores:
+            flor.dibujar(superficie)
+        for animal in self.animales:
+            animal.dibujar(superficie) 
+
+# -----------------------------------
+# CREAR MUNDO
+# -----------------------------------
+
+def crear_mundo():
+    global persona
+    
+    ecosistema = Ecosistema()
+
+    lago_orilla_rect = ecosistema.lago.rect_orilla
+    tamano_animal_std = 35
+    tamano_persona = 35
+    tamano_arbol = 40
+    tamano_casa = 60
+
+    obstaculos_totales = [lago_orilla_rect]
+    
+    CASA_X, CASA_Y = 100, 100
+    casa = Casa(CASA_X, CASA_Y, tamano_casa)
+    ecosistema.agregar_casa(casa)
+    obstaculos_totales.append(casa.rect)
+
+    for _ in range(15):
+        x, y = generar_spawn_seguro(obstaculos_totales, tamano_arbol)
+        arbol = Arbol(x, y)
+        ecosistema.agregar_arbol(arbol)
+        obstaculos_totales.append(arbol.rect)
+
+    spawn_cerca_x = CASA_X + (tamano_casa // 2)
+    spawn_cerca_y = CASA_Y + tamano_casa + 5 
+    
+    # --- CORRECCIÓN DEL ERROR: Llamar a la función correcta ---
+    spawn_x, spawn_y = generar_spawn_cerca(spawn_cerca_x, spawn_cerca_y, obstaculos_totales, tamano_persona, radio_max=70)
+    persona = Persona(spawn_x, spawn_y)
+
+# Animales terrestres
+    lago_agua_rect = ecosistema.lago.rect_agua
+
+    for _ in range(3):
+        x, y = generar_spawn_seguro(obstaculos_totales, tamano_animal_std)
+        ecosistema.agregar_animal(Vaca(x, y))
+    for _ in range(4):
+        x, y = generar_spawn_seguro(obstaculos_totales, tamano_animal_std)
+        ecosistema.agregar_animal(Gallina(x, y))
+    for _ in range(2):
+        x, y = generar_spawn_seguro(obstaculos_totales, tamano_animal_std)
+        ecosistema.agregar_animal(Zorro(x, y))
+    for _ in range(2):
+        x, y = generar_spawn_seguro(obstaculos_totales, tamano_animal_std)
+        ecosistema.agregar_animal(Caballo(x, y))
+    for _ in range(1):
+        x, y = generar_spawn_seguro(obstaculos_totales, tamano_animal_std)
+        ecosistema.agregar_animal(Oso(x, y))
+    for _ in range(1):
+        x, y = generar_spawn_seguro(obstaculos_totales, tamano_animal_std)
+        ecosistema.agregar_animal(Cerdo(x, y))
+    for _ in range(1):
+        x, y = generar_spawn_seguro(obstaculos_totales, tamano_animal_std)
+        ecosistema.agregar_animal(Lobo(x, y))
+    for _ in range(2):
+        x, y = generar_spawn_seguro(obstaculos_totales, tamano_animal_std)
+        ecosistema.agregar_animal(Mariposa(x, y))
+
+    # Animales anfibios
+    for _ in range(2):
+        x, y = generar_spawn_seguro(obstaculos_totales, tamano_animal_std)
+        ecosistema.agregar_animal(Rana(x, y))
+
+    # Peces
+    tamano_pez = tamano_animal_std
+    for _ in range(4): 
+        spawn_x = random.randint(lago_agua_rect.x, lago_agua_rect.right - tamano_pez)
+        spawn_y = random.randint(lago_agua_rect.y, lago_agua_rect.bottom - tamano_pez)
+        ecosistema.agregar_animal(Pez(spawn_x, spawn_y))
+
+    # Plantas, Algas y Flores iniciales
+    for _ in range(40):
+        x, y = generar_spawn_seguro(obstaculos_totales, Planta(0,0).tamano)
+        ecosistema.agregar_planta(Planta(x, y))
+    
+    for _ in range(50): 
+        x, y = generar_spawn_seguro(obstaculos_totales, Flor(0,0).tamano)
+        ecosistema.agregar_flor(Flor(x, y))
+
+    for _ in range(15):
+        x = random.randint(lago_agua_rect.x, lago_agua_rect.right - Alga(0,0).tamano)
+        y = random.randint(lago_agua_rect.y, lago_agua_rect.bottom - Alga(0,0).tamano)
+        ecosistema.algas.append(Alga(x, y))
+        
+    return ecosistema, persona
+
+# Inicialización del mundo (se reinicia al iniciar)
+ecosistema, persona = crear_mundo()
+
+# --- NUEVA VARIABLE GLOBAL PARA CONTROLAR EL MODO DE CLIC ---
+MODO_SPAWN_ACTIVO = False
+
+# -----------------------------------
+# FUNCIONES DE MENÚ
+# -----------------------------------
+def dibujar_menu(superficie):
+    # ... Este código es de Sebastian (Visual), pero se necesita el cuerpo de la función ...
+    superficie.blit(FONDO_MENU, (0, 0))
+    
+    # Título
+    titulo = FUENTE_GRANDE.render("Bienvenido al simulador de granja", True, COLOR_TEXTO)
+    titulo_rect = titulo.get_rect(center=(ANCHO // 2, ALTO // 3))
+    # Sombra
+    sombra = FUENTE_GRANDE.render("Bienvenido al simulador de granja", True, (0,0,0))
+    superficie.blit(sombra, (titulo_rect.x + 2, titulo_rect.y + 2))
+    superficie.blit(titulo, titulo_rect)
+    
+    # Botón de inicio
+    boton_ancho, boton_alto = 200, 70
+    boton_x = ANCHO // 2 - boton_ancho // 2
+    boton_y = ALTO // 2
+    
+    boton_rect = pygame.Rect(boton_x, boton_y, boton_ancho, boton_alto)
+    pygame.draw.rect(superficie, COLOR_BOTON, boton_rect, border_radius=10)
+    
+    texto_boton = FUENTE_MEDIANA.render("INICIAR", True, COLOR_TEXTO)
+    texto_boton_rect = texto_boton.get_rect(center=boton_rect.center)
+    superficie.blit(texto_boton, texto_boton_rect)
+    
+    # --- NUEVO: Instrucciones ---
+    texto_inst_1 = fuente_nombre.render("Mover: Flechas o WASD", True, COLOR_TEXTO)
+    texto_inst_2 = fuente_nombre.render("Recoger: Tecla 'E'", True, COLOR_TEXTO)
+    
+    # Posición en la esquina inferior derecha
+    superficie.blit(texto_inst_1, (ANCHO - texto_inst_1.get_width() - 15, ALTO - 50))
+    superficie.blit(texto_inst_2, (ANCHO - texto_inst_2.get_width() - 15, ALTO - 30))
+    
+    return boton_rect
+
+def manejar_menu_eventos(evento, boton_rect):
+    global ESTADO_JUEGO
+    if evento.type == pygame.MOUSEBUTTONDOWN:
+        if boton_rect.collidepoint(evento.pos):
+            global ecosistema, persona
+            ecosistema, persona = crear_mundo()
+            ESTADO_JUEGO = "JUGANDO"
+
+# --- NUEVA FUNCIÓN PARA MANEJAR EL CLIC ---
+def manejar_clic_animal(posicion_clic):
+    global ecosistema
+    
+    for animal in ecosistema.animales:
+        # Verifica si el clic (posicion_clic) colisiona con el área del animal (animal.rect)
+        if hasattr(animal, 'rect') and animal.rect.collidepoint(posicion_clic):
+            
+            # Obtiene la clase del animal que fue clickeado (ej: Vaca, Lobo, Pez)
+            clase_animal = animal.__class__
+            
+            # Lógica especial para Peces: deben spawnear en el lago
+            if isinstance(animal, Pez):
+                lago_agua_rect = ecosistema.lago.rect_agua
+                tamano_pez = animal.tamano # Usamos el tamaño del animal
+                x_spawn = random.randint(lago_agua_rect.x, lago_agua_rect.right - tamano_pez)
+                y_spawn = random.randint(lago_agua_rect.y, lago_agua_rect.bottom - tamano_pez)
+                
+            # Lógica para animales terrestres: usan generar_spawn_cerca
+            else:
+                obstaculos = [ecosistema.lago.rect_orilla] + [a.rect for a in ecosistema.arboles]
+                if ecosistema.casa: obstaculos.append(ecosistema.casa.rect)
+                # Intenta spawnear cerca del animal clickeado
+                x_spawn, y_spawn = generar_spawn_cerca(animal.x, animal.y, obstaculos, animal.tamano, radio_max=50)
+            
+            # Crea y añade un nuevo animal de la misma clase
+            nuevo_animal = clase_animal(x_spawn, y_spawn)
+            ecosistema.agregar_animal(nuevo_animal)
+            
+            # Solo crea uno y sale del bucle
+            return True 
+    return False
+
+# -----------------------------------
+# BUCLE PRINCIPAL
+# -----------------------------------
+ejecutando = True
+while ejecutando:
+    for evento in pygame.event.get():
+        if evento.type == pygame.QUIT:
+            ejecutando = False
+            
+        if ESTADO_JUEGO == "MENU":
+            if 'boton_rect_menu' in locals():
+                manejar_menu_eventos(evento, boton_rect_menu)
+        elif ESTADO_JUEGO == "JUGANDO":
+            if evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_e:
+                    persona.recoger(ecosistema)
+                # *** CAMBIO SOLICITADO: Alternar MODO_SPAWN_ACTIVO con ESPACIO ***
+                if evento.key == pygame.K_SPACE:
+                    MODO_SPAWN_ACTIVO = not MODO_SPAWN_ACTIVO
+
+            # *** NUEVO: Manejar el clic del ratón si el modo está activo ***
+            if evento.type == pygame.MOUSEBUTTONDOWN and MODO_SPAWN_ACTIVO:
+                # Botón 1 es el clic izquierdo
+                if evento.button == 1: 
+                    manejar_clic_animal(evento.pos)
+
+if ESTADO_JUEGO == "JUGANDO":
+        teclas = pygame.key.get_pressed()
+        persona.mover(teclas, ecosistema)
+        
+        ecosistema.actualizar()
+
+        ecosistema.dibujar(ventana)
+        persona.dibujar(ventana)
+
+        fuente = pygame.font.SysFont(None, 24)
+        texto = fuente.render(f"Huevos: {persona.inventario['huevos']} | Leche: {persona.inventario['leche']}", True, (0, 0, 0))
+        ventana.blit(texto, (10, 10))
+        
+        # *** NUEVO: Indicador de modo SPAWN ***
+        color_modo = (0, 150, 0) if MODO_SPAWN_ACTIVO else (150, 0, 0)
+        texto_modo = f"MODO SPAWN: {'ACTIVO (Click en Animal)' if MODO_SPAWN_ACTIVO else 'INACTIVO (Presiona ESPACIO)'}"
+        texto_spawn = fuente.render(texto_modo, True, color_modo)
+        ventana.blit(texto_spawn, (10, 35))
+        
+    elif ESTADO_JUEGO == "MENU":
+        boton_rect_menu = dibujar_menu(ventana) 
+
+    pygame.display.flip()
+    reloj.tick(FPS)
+
+pygame.quit()
