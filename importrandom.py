@@ -188,3 +188,29 @@ class Casa(Entidad):
 
     def dibujar(self, superficie):
         superficie.blit(self.imagen, (self.x, self.y))
+# -----------------------------------
+# LAGO
+# -----------------------------------
+class Lago(Entidad):
+    def __init__(self, x, y, ancho, alto):
+        super().__init__(x, y)
+        
+        self.rect_orilla = pygame.Rect(x, y, ancho, alto) 
+        self.rect_agua = pygame.Rect(
+            x + GROSOR_ORILLA, 
+            y + GROSOR_ORILLA, 
+            ancho - GROSOR_ORILLA * 2, 
+            alto - GROSOR_ORILLA * 2
+        )
+
+        ruta_orilla = os.path.join(IMAGES_DIR, "orilla.png")
+        color_fondo_orilla = (210, 180, 140)
+        self.imagen_orilla = cargar_imagen_segura(ruta_orilla, tam=(ancho, alto), color=color_fondo_orilla)
+
+        ruta_agua = os.path.join(IMAGES_DIR, "lago.png")
+        color_fondo_agua = (0, 0, 139)
+        self.imagen_agua = cargar_imagen_segura(ruta_agua, tam=(self.rect_agua.width, self.rect_agua.height), color=color_fondo_agua)
+
+    def dibujar(self, superficie):
+        superficie.blit(self.imagen_orilla, (self.rect_orilla.x, self.rect_orilla.y))
+        superficie.blit(self.imagen_agua, (self.rect_agua.x, self.rect_agua.y))
