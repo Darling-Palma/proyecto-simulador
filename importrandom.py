@@ -175,3 +175,16 @@ class Arbol(Entidad):
 
     def dibujar(self, superficie):
         superficie.blit(self.imagen, (self.x, self.y))
+# -----------------------------------
+# NUEVO: CLASE CASA
+# -----------------------------------
+class Casa(Entidad):
+    def __init__(self, x, y, tamano=60):
+        super().__init__(x, y)
+        self.tamano = tamano
+        ruta_img = os.path.join(IMAGES_DIR, "casa.png")
+        self.imagen = cargar_imagen_segura(ruta_img, tam=(self.tamano, self.tamano), color=(160, 82, 45)) # Color sienna
+        self.rect = pygame.Rect(x, y, self.tamano, self.tamano)
+
+    def dibujar(self, superficie):
+        superficie.blit(self.imagen, (self.x, self.y))
