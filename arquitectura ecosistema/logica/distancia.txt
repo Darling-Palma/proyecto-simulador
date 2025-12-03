@@ -1,0 +1,24 @@
+def distancia(a, b):
+    try:
+        x1, y1 = (a.x, a.y) if hasattr(a, 'x') else (a['x'], a['y'])
+        x2, y2 = (b.x, b.y) if hasattr(b, 'x') else (b['x'], b['y'])
+        return math.sqrt((x1-x2)**2 + (y1-y2)**2)
+    except: return float('inf')
+
+def normalizar_vector(dx, dy):
+    m = math.sqrt(dx**2 + dy**2)
+    return (0, 0) if m == 0 else (dx/m, dy/m)
+
+def generar_spawn_seguro(obs, tam):
+    for _ in range(100):
+        x, y = random.randint(0, ANCHO-tam), random.randint(0, ALTO-tam)
+        if not any(pygame.Rect(x,y,tam,tam).colliderect(o) for o in obs): return x,y
+    return 0,0
+
+def generar_spawn_cerca(px, py, obs, tam, r=100):
+    for _ in range(50):
+        a, d = random.uniform(0, 6.28), random.uniform(tam, r)
+        x, y = int(px+math.cos(a)*d), int(py+math.sin(a)*d)
+        x, y = max(0, min(ANCHO-tam, x)), max(0, min(ALTO-tam, y))
+        if not any(pygame.Rect(x,y,tam,tam).colliderect(o) for o in obs): return x,y
+    return generar_spawn_seguro(obs, tam)

@@ -1,0 +1,20 @@
+ANCHO, ALTO = 800, 600
+FPS = 20
+GROSOR_ORILLA = 20
+
+try:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+except NameError:
+    BASE_DIR = os.getcwd()
+
+IMAGES_DIR = os.path.join(BASE_DIR, "imagenes")
+SAVES_DIR = os.path.join(BASE_DIR, "saves")
+
+if not os.path.exists(SAVES_DIR):
+    os.makedirs(SAVES_DIR)
+
+RUTAS = {
+    "slot_1": os.path.join(SAVES_DIR, "slot_1.json"),
+    "slot_2": os.path.join(SAVES_DIR, "slot_2.json"),
+    "auto":    os.path.join(SAVES_DIR, "autosave.json")
+}
