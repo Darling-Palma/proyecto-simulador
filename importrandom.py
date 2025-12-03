@@ -413,253 +413,8 @@ class MenuPrincipal:
         if self.btn_slot2.collidepoint(pos): return "JUGAR", RUTAS["slot_2"]
         if self.btn_auto.collidepoint(pos):  return "CARGAR_AUTO", RUTAS["auto"]
         return None, None
-
-
     
-    def actualizar(self, eco):
-        p = [a for a in eco.animales if a.tipo == "herbivoro" and not isinstance(a, Pez)]
-        t = None
-        if self.vida < 90 and p:
-            obj = min(p, key=lambda x: distancia(self, x))
-            if distancia(self, obj) < 25:
-                obj.vida = 0
-                self.vida += 30
-            else:
-                t = (obj.x, obj.y)
-
-        self.mover(t[0] if t else None, t[1] if t else None, eco)
-        self.envejecer()
-
-
-class Rana(Animal):
-    def __init__(self, x, y):
-        super().__init__("Rana", "omnivoro", x, y, os.path.join(IMAGES_DIR, "rana.png"), True)
-
-    def actualizar(self, eco):
-        self.timer -= 1
-        if self.timer <= 0:
-            if eco.lago.rect_agua.collidepoint(self.x, self.y):
-                self.target_x, self.target_y = random.randint(0, ANCHO), random.randint(0, ALTO)
-            else:
-                r = eco.lago.rect_agua
-                self.target_x, self.target_y = random.randint(r.x, r.right), random.randint(r.y, r.bottom)
-            self.timer = random.randint(100, 200)
-
-        self.mover(None, None, eco)
-        self.envejecer()
-
-
-class Arbol(Entidad):
-    def __init__(self, x, y):
-        super().__init__(x, y)
-        self.tamano = 40
-        self.imagen = cargar_imagen_segura(os.path.join(IMAGES_DIR, "arbol.png"), tam=(40, 40))
-        self.rect = self.imagen.get_rect(topleft=(x, y))
-
-    def dibujar(self, surf):
-        surf.blit(self.imagen, (self.x, self.y))
-
-
-class Casa(Entidad):
-    def __init__(self, x, y):
-        super().__init__(x, y)
-        self.tamano = 100
-        self.imagen = cargar_imagen_segura(os.path.join(IMAGES_DIR, "casa.png"), tam=(100, 100))
-        self.rect = self.imagen.get_rect(topleft=(x, y))
-
-    def dibujar(self, surf):
-        surf.blit(self.imagen, (self.x, self.y))
-
-
-class Lago:
-    def __init__(self, x, y, w, h):
-        # rect_orilla es la orilla, rect_agua es la zona con agua interna
-        self.rect_orilla = pygame.Rect(x, y, w, h)
-        self.rect_agua = pygame.Rect(
-            x + GROSOR_ORILLA, y + GROSOR_ORILLA, w - 2 * GROSOR_ORILLA, h - 2 * GROSOR_ORILLA
-        )
-        self.img_orilla = cargar_imagen_segura(
-            os.path.join(IMAGES_DIR, "orilla.png"), tam=(w, h), color=(210, 180, 140)
-        )
-        self.img_agua = cargar_imagen_segura(
-            os.path.join(IMAGES_DIR, "lago.png"),
-            tam=(self.rect_agua.width, self.rect_agua.height),
-            color=(0, 0, 139),
-        )
-
-    def dibujar(self, surf):
-        surf.blit(self.img_orilla, self.rect_orilla)
-        surf.blit(self.img_agua, self.rect_agua)
-
-
-class Persona(Animal):
-    def __init__(self, x, y):
-        super().__init__("Jugador", "humano", x, y, os.path.join(IMAGES_DIR, "persona.png"))
-        self.inventario = {"huevos": 0, "leche": 0}
-        self.tamano = 40
-        self.obj_drag = None
-        self.velocidad = 10
-
-    def mover(self, keys, eco):
-        
-        mx, my = 0, 0
-        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
-            mx = -self.velocidad
-        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
-            mx = self.velocidad
-        if keys[pygame.K_w] or keys[pygame.K_UP]:
-            my = -self.velocidad
-        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
-            my = self.velocidad
-
-        if mx < 0 and not self.mirando_izq:
-            self.imagen = self.img_L
-            self.mirando_izq = True
-        elif mx > 0 and self.mirando_izq:
-            self.imagen = self.img_R
-            self.mirando_izq = False
-
-        obs = eco.obtener_obstaculos()
-        if not any(pygame.Rect(self.x + mx, self.y, self.tamano, self.tamano).colliderect(o) for o in obs):
-            self.x += mx
-        if not any(pygame.Rect(self.x, self.y + my, self.tamano, self.tamano).colliderect(o) for o in obs):
-            self.y += my
-
-        self.x = max(0, min(ANCHO - self.tamano, self.x))
-        self.y = max(0, min(ALTO - self.tamano, self.y))
-        self.rect.topleft = (self.x, self.y)
-
-    def recoger(self, eco):
-        
-        for h in eco.huevos[:]:
-            if self.rect.colliderect(h.rect):
-                eco.huevos.remove(h)
-                self.inventario["huevos"] += 1
-
-        for a in eco.animales:
-            if isinstance(a, Vaca) and distancia(self, a) < 50 and a.leche > 0:
-                self.inventario["leche"] += 1
-                a.leche = 0
-
-    def intentar_arrastrar(self, pos, eco):
-        
-        for a in eco.animales:
-            if a.rect.collidepoint(pos) and distancia(self, a) < 100:
-                self.obj_drag = a
-                break
-
-    def soltar(self):
-        self.obj_drag = None
-
-class Ecosistema:
-    def __init__(self):
-        self.animales = []
-        self.plantas = []
-        self.algas = []
-        self.arboles = []
-        self.huevos = []
-        self.casa = None
-        self.lago = None
-
-    def agregar_animal(self, a):
-        self.animales.append(a)
-
-    def obtener_obstaculos(self):
-       
-        obs = [a.rect for a in self.arboles]
-        if self.casa:
-            obs.append(self.casa.rect)
-        if self.lago:
-            obs.append(self.lago.rect_orilla)
-        return obs
-
-    def actualizar(self):
-       
-        self.animales = [a for a in self.animales if a.esta_vivo()]
-        for a in self.animales:
-            a.actualizar(self)
-
-        
-        for p in self.plantas:
-            p.crecer()
-
-       
-        for h in self.huevos[:]:
-            h.incubar(self)
-
-        
-        if len(self.plantas) < 50:
-            x, y = generar_spawn_seguro(self.obtener_obstaculos(), 10)
-            self.plantas.append(Planta(x, y))
-
-        
-        if len(self.huevos) >= 5:
-            for _ in range(5):
-                self.huevos.pop(0)
-            x, y = generar_spawn_seguro(self.obtener_obstaculos(), 35)
-            self.agregar_animal(Gallina(x, y))
-
-    def dibujar(self, surf):
-        
-        if self.lago:
-            self.lago.dibujar(surf)
-
-        for x in self.algas + self.plantas + self.huevos + self.arboles:
-            x.dibujar(surf)
-
-        if self.casa:
-            self.casa.dibujar(surf)
-
-        for a in self.animales:
-            a.dibujar(surf)
-
-
-
-def inicializar():
-   
-    eco = Ecosistema()
-    eco.casa = Casa(ANCHO - 120, 20)
-    eco.lago = Lago(ANCHO // 2 - 150, ALTO - 200, 300, 150)
-
-    
-    for p in [(50, 50), (150, 100), (300, 30), (700, 400)]:
-        eco.arboles.append(Arbol(*p))
-
-    obs = eco.obtener_obstaculos()
-
-   
-    for _ in range(30):
-        x, y = generar_spawn_seguro(obs, 10)
-        eco.plantas.append(Planta(x, y))
-
-    
-    clases = [Vaca, Gallina, Zorro, Caballo, Oso, Cerdo, Lobo, Rana]
-    cantidades = [3, 5, 1, 2, 1, 2, 1, 2]
-
-    for cls, cant in zip(clases, cantidades):
-        for _ in range(cant):
-            x, y = 0, 0
-            if cls == Rana:
-                x, y = random.randint(0, ANCHO), random.randint(0, ALTO)
-            else:
-                x, y = generar_spawn_seguro(obs, 35)
-
-            if x != 0 or y != 0:
-                eco.agregar_animal(cls(x, y))
-
-   
-    for _ in range(4):
-        r = eco.lago.rect_agua
-        x = random.randint(r.x, r.right - 30)
-        y = random.randint(r.y, r.bottom - 30)
-        eco.agregar_animal(Pez(x, y))
-
-    return eco
-
 # capa de persistencia
-
-import json
-import os
 
 class Persistencia:
     def __init__(self, archivo="partida.json"):
@@ -693,248 +448,97 @@ class Persistencia:
         except Exception as e:
             raise Exception(f"Error al rescatar: {e}")
 
+# bucle 
 
-
-
-# capa vista
-
-pygame.init()
-ventana = pygame.display.set_mode((ANCHO, ALTO))
-pygame.display.set_caption("Simulador de Ecosistema")
-reloj = pygame.time.Clock()
-
-
-FUENTE_GRANDE = pygame.font.SysFont(None, 48)
-FUENTE_MEDIANA = pygame.font.SysFont(None, 32)
-fuente_nombre = pygame.font.SysFont(None, 16)
-FUENTE_INSTRUCCIONES = pygame.font.SysFont(None, 24)
-
-
-try:
-    img_lleno = cargar_imagen_segura(
-        os.path.join(IMAGES_DIR, "corazon_lleno.png"),
-        tam=(10, 10),
-        color=(255, 0, 0)
-    )
-
-    img_vacio = cargar_imagen_segura(
-        os.path.join(IMAGES_DIR, "corazon_vacio.png"),
-        tam=(10, 10),
-        color=(50, 0, 0)
-    )
-
-    if img_lleno.get_width() == 10:
-        USAR_IMAGEN_CORAZON = True
-
-    FONDO_JUEGO = cargar_imagen_segura(
-        os.path.join(IMAGES_DIR, "fondo.png"),
-        tam=(ANCHO, ALTO)
-    )
-
-    FONDO_MENU = cargar_imagen_segura(
-        os.path.join(IMAGES_DIR, "menu_fondo.png"),
-        tam=(ANCHO, ALTO)
-    )
-
-except:
-    USAR_IMAGEN_CORAZON = False
-
-    FONDO_JUEGO = pygame.Surface((ANCHO, ALTO))
-    FONDO_JUEGO.fill((135, 206, 235))
-
-    FONDO_MENU = pygame.Surface((ANCHO, ALTO))
-    FONDO_MENU.fill(COLOR_MENU)
-
-
-def dibujar_corazones(superficie, x, y, vida, max_corazones=3):
-    llenos = int((vida / 100) * max_corazones)
-    start_x = x + 35 // 2 - (max_corazones * 12) // 2
-
-    for i in range(max_corazones):
-        cx = start_x + i * 12
-        cy = y - 18
-
-        if i < llenos:
-            if USAR_IMAGEN_CORAZON:
-                superficie.blit(img_lleno, (cx, cy))
-            else:
-                pygame.draw.circle(superficie, (255, 0, 0), (cx+5, cy+5), 5)
-        else:
-            if USAR_IMAGEN_CORAZON:
-                superficie.blit(img_vacio, (cx, cy))
-            else:
-                pygame.draw.circle(superficie, (50, 0, 0), (cx+5, cy+5), 5)
-
-
-class MenuPrincipal:
-    def __init__(self):
-        self.btn_jugar = pygame.Rect(ANCHO//2 - 100, ALTO//2 - 40, 200, 50)
-        self.btn_cargar = pygame.Rect(ANCHO//2 - 100, ALTO//2 + 30, 200, 50)
-
-    def dibujar(self, surf):
-        surf.blit(FONDO_MENU, (0, 0))
-
-        titulo = FUENTE_GRANDE.render("Ecosistema", True, COLOR_TEXTO)
-        surf.blit(titulo, titulo.get_rect(center=(ANCHO//2, ALTO//3 - 30)))
-
-        pygame.draw.rect(surf, COLOR_BOTON, self.btn_jugar, border_radius=10)
-        txt_jugar = FUENTE_MEDIANA.render("Iniciar", True, COLOR_TEXTO)
-        surf.blit(txt_jugar, txt_jugar.get_rect(center=self.btn_jugar.center))
-
-        if os.path.exists(ARCHIVO_GUARDADO):
-            pygame.draw.rect(surf, COLOR_BOTON_CARGAR, self.btn_cargar, border_radius=10)
-            txt_cargar = FUENTE_MEDIANA.render("CARGAR PARTIDA", True, COLOR_TEXTO)
-            surf.blit(txt_cargar, txt_cargar.get_rect(center=self.btn_cargar.center))
-
-        instrucciones = [
-            "CONTROLES:",
-            "- WASD: Moverse | E: Recoger",
-            "- ESPACIO: Modo Spawn | G: Guardar",
-            "- Arrastrar Animales: Clic + Mover"
-        ]
-
-        y_pos = ALTO - 130
-        for linea in instrucciones:
-            txt = FUENTE_INSTRUCCIONES.render(linea, True, COLOR_TEXTO)
-            surf.blit(txt, (ANCHO//2 - txt.get_width()//2, y_pos))
-            y_pos += 25
-
-    def click(self, pos):
-        if self.btn_jugar.collidepoint(pos):
-            return "NUEVA"
-
-        if os.path.exists(ARCHIVO_GUARDADO) and self.btn_cargar.collidepoint(pos):
-            return "CARGAR"
-
-        return "MENU"
-
-
-def manejar_clic_animal(pos, eco):
-    x, y = pos[0] - 17, pos[1] - 17
-    rect = pygame.Rect(x, y, 35, 35)
-
-   
-    obs = eco.obtener_obstaculos()
-    if any(rect.colliderect(o) for o in obs):
-        return
-
-    
-    en_agua = eco.lago.rect_agua.colliderect(rect)
-
-    
-    cls = random.choice([Vaca, Gallina, Zorro, Caballo, Oso, Cerdo, Lobo, Rana])
-
-    if en_agua:
-        eco.agregar_animal(Pez(x, y))
-    else:
-        eco.agregar_animal(cls(x, y))
-
-
-ecosistema = None
-persona = None
+ecosistema, persona = None, None
 menu = MenuPrincipal()
-
 estado = "MENU"
 modo_spawn = False
 corriendo = True
 mensaje_guardado = 0
+slot_actual = None
 
+
+EVENTO_AUTOSAVE = pygame.USEREVENT + 1
+pygame.time.set_timer(EVENTO_AUTOSAVE, 60000)
 
 while corriendo:
-
     for e in pygame.event.get():
-
-        if e.type == pygame.QUIT:
-            corriendo = False
-
+        if e.type == pygame.QUIT: corriendo = False
         
+
+        if e.type == EVENTO_AUTOSAVE and estado == "JUGANDO":
+            guardar_partida(ecosistema, persona, RUTAS["auto"])
+            mensaje_guardado = 30 
+
         if estado == "MENU":
             if e.type == pygame.MOUSEBUTTONDOWN:
-                accion = menu.click(e.pos)
-
-                if accion == "NUEVA":
-                    ecosistema = inicializar()
-                    persona = Persona(ANCHO//2, ALTO//2)
+                accion, ruta = menu.click(e.pos)
+                
+                if accion == "JUGAR":
+                    slot_actual = ruta
+                    eco_c, per_c = cargar_partida(ruta) 
+                    if eco_c: 
+                        ecosistema, persona = eco_c, per_c
+                    else: 
+                        ecosistema, persona = inicializar(), Persona(ANCHO//2, ALTO//2) 
                     estado = "JUGANDO"
-
-                elif accion == "CARGAR":
-                    eco_cargado, per_cargado = cargar_partida()
-                    if eco_cargado:
-                        ecosistema = eco_cargado
-                        persona = per_cargado
+                
+                elif accion == "CARGAR_AUTO":
+                    eco_c, per_c = cargar_partida(ruta) 
+                    if eco_c:
+                        ecosistema, persona = eco_c, per_c
+                        slot_actual = RUTAS["auto"]
                         estado = "JUGANDO"
 
-       
         elif estado == "JUGANDO":
-
-            
             if e.type == pygame.MOUSEBUTTONDOWN:
-                if persona.rect.collidepoint(e.pos):
-                    persona.intentar_arrastrar(e.pos, ecosistema)
-
-                elif modo_spawn and e.button == 1:
-                    manejar_clic_animal(e.pos, ecosistema)
-
+                if persona.rect.collidepoint(e.pos): persona.intentar_arrastrar(e.pos, ecosistema) 
+                elif modo_spawn and e.button == 1: manejar_clic_animal(e.pos, ecosistema) 
             
-            if e.type == pygame.MOUSEBUTTONUP:
-                persona.soltar()
-
-          
+            if e.type == pygame.MOUSEBUTTONUP: persona.soltar() 
+            
             if e.type == pygame.MOUSEMOTION and persona.obj_drag:
-                persona.obj_drag.x = e.pos[0] - 20
-                persona.obj_drag.y = e.pos[1] - 20
+                persona.obj_drag.x, persona.obj_drag.y = e.pos[0]-20, e.pos[1]-20
                 persona.obj_drag.rect.topleft = (persona.obj_drag.x, persona.obj_drag.y)
-
             
             if e.type == pygame.KEYDOWN:
-                if e.key == pygame.K_SPACE:
-                    modo_spawn = not modo_spawn
-
-                if e.key == pygame.K_e:
-                    persona.recoger(ecosistema)
-
-                if e.key == pygame.K_g:
-                    guardar_partida(ecosistema, persona)
+                if e.key == pygame.K_SPACE: modo_spawn = not modo_spawn
+                if e.key == pygame.K_e: persona.recoger(ecosistema) 
+                if e.key == pygame.K_ESCAPE: estado = "MENU"
+                if e.key == pygame.K_g and slot_actual: 
+                    guardar_partida(ecosistema, persona, slot_actual) 
                     mensaje_guardado = 60
 
     if estado == "JUGANDO":
+        persona.mover(pygame.key.get_pressed(), ecosistema) 
+        ecosistema.actualizar() 
 
-        persona.mover(pygame.key.get_pressed(), ecosistema)
-        ecosistema.actualizar()
-
+        
         ventana.blit(FONDO_JUEGO, (0, 0))
-
         ecosistema.dibujar(ventana)
         persona.dibujar(ventana)
+        
+        for a in ecosistema.animales:
+            txt = F_N.render(a.nombre, True, (0,0,0))
+            ventana.blit(txt, (a.x+5, a.y+35))
 
-        info = fuente_nombre.render(
-            f"Huevos: {persona.inventario['huevos']} | Leche: {persona.inventario['leche']}",
-            True,
-            COLOR_HUD
-        )
+        info = F_N.render(f"Huevos: {persona.inventario['huevos']} | Leche: {persona.inventario['leche']}", True, COLOR_HUD)
         ventana.blit(info, (10, 10))
-
-        txt_animales = fuente_nombre.render(
-            f"Animales: {len(ecosistema.animales)}",
-            True,
-            COLOR_HUD
-        )
-        ventana.blit(txt_animales, (10, 30))
-
-        modo = fuente_nombre.render(
-            f"SPAWN: {'ON' if modo_spawn else 'OFF'} | G: Guardar",
-            True,
-            (0,150,0) if modo_spawn else (50,50,50)
-        )
-        ventana.blit(modo, (ANCHO - 200, 10))
+        
+        s_name = "Slot 1" if "slot_1" in str(slot_actual) else "Slot 2" if "slot_2" in str(slot_actual) else "AutoSave"
+        ventana.blit(F_N.render(f"Jugando: {s_name}", True, (0,0,255)), (10, 30))
+        
+        modo = F_N.render(f"SPAWN: {'ON' if modo_spawn else 'OFF'} | G: Guardar | ESC: Salir", True, (0,150,0) if modo_spawn else (50,50,50))
+        ventana.blit(modo, (ANCHO - 250, 10))
 
         if mensaje_guardado > 0:
-            msg = FUENTE_MEDIANA.render("PARTIDA GUARDADA", True, (255, 255, 0))
+            msg = F_M.render("PARTIDA GUARDADA", True, (255, 255, 0))
             ventana.blit(msg, (ANCHO//2 - msg.get_width()//2, ALTO - 50))
             mensaje_guardado -= 1
-
+        
     elif estado == "MENU":
-        menu.dibujar(ventana)
+        menu.dibujar(ventana) 
 
     pygame.display.flip()
     reloj.tick(FPS)
