@@ -2,893 +2,551 @@ import pygame
 import random
 import math
 import os
-
-
+import json
 
 
 ANCHO, ALTO = 800, 600
 FPS = 20
 GROSOR_ORILLA = 20
 
-
-pygame.init()
-ventana = pygame.display.set_mode((ANCHO, ALTO))
-pygame.display.set_caption("Simulador de Ecosistema (Con Casa)")
-reloj = pygame.time.Clock()
-
+COLOR_MENU = (100, 100, 100)
+COLOR_BOTON = (0, 200, 0)
+COLOR_BOTON_CARGAR = (200, 150, 0)
+COLOR_TEXTO = (255, 255, 255)
+COLOR_HUD = (0, 0, 0)
+TAMANO_CORAZON = 10
+USAR_IMAGEN_CORAZON = False
+ARCHIVO_GUARDADO = "partida_guardada.json"
 
 try:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 except NameError:
     BASE_DIR = os.getcwd()
-IMAGES_DIR = os.path.join(BASE_DIR, "imagenes") 
 
-ESTADO_JUEGO = "MENU" 
-MODO_SPAWN_ACTIVO = False 
+IMAGES_DIR = os.path.join(BASE_DIR, "imagenes")
 
-COLOR_MENU = (100, 100, 100)
-COLOR_BOTON = (0, 200, 0)
-COLOR_TEXTO = (255, 255, 255)
-FUENTE_GRANDE = pygame.font.SysFont(None, 48)
-FUENTE_MEDIANA = pygame.font.SysFont(None, 32)
-fuente_nombre = pygame.font.SysFont(None, 16) 
+# capa logica
 
-
-TAMANO_CORAZON = 10
-USAR_IMAGEN_CORAZON = False
-IMAGEN_CORAZON_LLENO = None
-IMAGEN_CORAZON_VACIO = None
-
-
-
-def distancia(cosa1, cosa2):
-    """Calcula la distancia entre dos objetos con atributos x, y."""
+def cargar_imagen_segura(ruta, tam=(40, 40), color=(200, 200, 200), flip_horizontal=False):
+    
     try:
-        ax = cosa1.x
-        ay = cosa1.y
-        bx = cosa2.x
-        by = cosa2.y
-        
-        distancia_x_temp = ax - bx
-        distancia_y_temp = ay - by
-        
-        x_al_cuadrado = distancia_x_temp * distancia_x_temp
-        y_al_cuadrado = distancia_y_temp * distancia_y_temp
-        
-        suma_total_cuadrados = x_al_cuadrado + y_al_cuadrado
-        
-        distancia_final = math.sqrt(suma_total_cuadrados)
-        
-        if distancia_final == 0:
-            return 1.0
-        
-        return distancia_final
+        img = pygame.image.load(ruta).convert_alpha()
+        img = pygame.transform.scale(img, tam)
+        if flip_horizontal:
+            img = pygame.transform.flip(img, True, False)
+        return img
     except Exception:
-       
-        return 999999999.0
+        surf = pygame.Surface(tam)
+        surf.fill(color)
+        return surf
+
+
+def distancia(obj1, obj2):
+   
+    try:
+        x1 = obj1.x if hasattr(obj1, "x") else obj1[0]
+        y1 = obj1.y if hasattr(obj1, "y") else obj1[1]
+        x2 = obj2.x if hasattr(obj2, "x") else obj2[0]
+        y2 = obj2.y if hasattr(obj2, "y") else obj2[1]
+        return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+    except Exception:
+        return float("inf")
 
 
 def normalizar_vector(dx, dy):
-    """Convierte un vector de movimiento en un vector unitario."""
-    magnitud_temp = dx * dx + dy * dy
-    magnitud = math.sqrt(magnitud_temp)
-    
-    if magnitud == 0:
-        return 0.0, 0.0
-        
-    
-    ndx = dx / magnitud
-    ndy = dy / magnitud
-    
-    return ndx, ndy
+   
+    m = math.sqrt(dx ** 2 + dy ** 2)
+    return (0, 0) if m == 0 else (dx / m, dy / m)
 
-def cargar_imagen_segura(ruta, tam=(40, 40), color=(200, 200, 200), flip_horizontal=False):
-    """Carga y escala una imagen, o crea un sustituto si falla."""
-    try:
-        img_temp_cargada = pygame.image.load(ruta)
-        img_temp = img_temp_cargada 
-        img = pygame.transform.scale(img_temp, tam)
-        
-        if flip_horizontal == True: 
-            img = pygame.transform.flip(img, True, False)
-        
-        return img
-    except Exception:
-      
-        surf_error = pygame.Surface(tam) 
-        surf_error.fill(color)
-        return surf_error
 
-def generar_spawn_seguro(lista_obstaculos_rects, tamano_entidad):
-    """Intenta generar coordenadas que no colisionen con los obstáculos."""
-    intentos_maximos = 1000 
+def generar_spawn_seguro(obstaculos, tam):
     
-    for intento_actual in range(intentos_maximos):
-        
-        x_aleatorio = random.randint(0, ANCHO - tamano_entidad)
-        y_aleatorio = random.randint(0, ALTO - tamano_entidad)
-        
-        spawn_rect = pygame.Rect(x_aleatorio, y_aleatorio, tamano_entidad, tamano_entidad)
-        
-        esta_en_obstaculo = False
-        
-        for obstaculo in lista_obstaculos_rects:
-            colisiona = spawn_rect.colliderect(obstaculo)
-            if colisiona == True:
-                esta_en_obstaculo = True
-                break
-        
-        if esta_en_obstaculo == False:
-            return x_aleatorio, y_aleatorio
-    
+    for _ in range(1000):
+        x = random.randint(0, ANCHO - tam)
+        y = random.randint(0, ALTO - tam)
+        rect_prueba = pygame.Rect(x, y, tam, tam)
+        if not any(rect_prueba.colliderect(obs) for obs in obstaculos):
+            return x, y
+    return 0, 0
+
+
+def dibujar_corazones(surf, x, y, vida):
  
-    return 10, 10
+    try:
+        cantidad = int((vida / 100) * 5)
+        for i in range(cantidad):
+            rect = pygame.Rect(x + i * (TAMANO_CORAZON + 2), y - (TAMANO_CORAZON + 2),
+                               TAMANO_CORAZON, TAMANO_CORAZON)
+            pygame.draw.rect(surf, (255, 0, 0), rect)
+    except Exception:
+        pass
 
-
-try:
-    RUTA_CORAZON_LLENO = os.path.join(IMAGES_DIR, "corazon_lleno.png")
-    RUTA_CORAZON_VACIO = os.path.join(IMAGES_DIR, "corazon_vacio.png")
-    tam_c = (TAMANO_CORAZON, TAMANO_CORAZON)
-    IMAGEN_CORAZON_LLENO = cargar_imagen_segura(RUTA_CORAZON_LLENO, tam=tam_c, color=(255, 0, 0))
-    IMAGEN_CORAZON_VACIO = cargar_imagen_segura(RUTA_CORAZON_VACIO, tam=tam_c, color=(50, 0, 0))
-    if IMAGEN_CORAZON_LLENO.get_width() == TAMANO_CORAZON: 
-        USAR_IMAGEN_CORAZON = True
-except Exception:
-    USAR_IMAGEN_CORAZON = False
-
-try:
-    path_fondo_juego = os.path.join(IMAGES_DIR, "fondo.png")
-    FONDO_JUEGO = cargar_imagen_segura(path_fondo_juego, tam=(ANCHO, ALTO))
-except Exception:
-    FONDO_JUEGO_TEMP = pygame.Surface((ANCHO, ALTO))
-    FONDO_JUEGO_TEMP.fill((135, 206, 235))
-    FONDO_JUEGO = FONDO_JUEGO_TEMP
-
-try:
-    path_menu_fondo = os.path.join(IMAGES_DIR, "menu_fondo.png")
-    FONDO_MENU = cargar_imagen_segura(path_menu_fondo, tam=(ANCHO, ALTO))
-except Exception:
-    FONDO_MENU_TEMP = pygame.Surface((ANCHO, ALTO))
-    FONDO_MENU_TEMP.fill(COLOR_MENU)
-    FONDO_MENU = FONDO_MENU_TEMP
 
 
 class Entidad:
-    """Clase base simple para todos los objetos del mundo."""
     def __init__(self, x, y):
         self.x = x
         self.y = y
 
-    def dibujar(self, superficie):
+    def dibujar(self, surf):
         pass
 
+
 class Planta(Entidad):
-    def __init__(self, x_p, y_p):
-        super().__init__(x_p, y_p)
-        self.tamano = random.randint(5, 12)
-        self.crecimiento = 100 
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.tamano = 15
         self.vida = 100
-        self.color = (0, random.randint(150, 200), 0) 
-        self.rect = pygame.Rect(self.x, self.y, self.tamano, self.tamano)
+        self.imagen = cargar_imagen_segura(
+            os.path.join(IMAGES_DIR, "planta.png"), tam=(15, 15), color=(0, 255, 0)
+        )
+        self.rect = pygame.Rect(x, y, 15, 15)
 
     def crecer(self):
-        self.crecimiento += random.uniform(0.1, 0.5)
-        if self.crecimiento > 150:
-            self.crecimiento = 150
-        
-        self.vida -= 0.01 
+        self.vida -= 0.01
 
-    def dibujar(self, superficie):
-        self.rect = pygame.draw.circle(superficie, self.color, (int(self.x), int(self.y)), self.tamano // 2)
+    def dibujar(self, surf):
+        surf.blit(self.imagen, (self.x, self.y))
+
 
 class Alga(Entidad):
-    def __init__(self, x_a, y_a):
-        super().__init__(x_a, y_a)
-        self.tamano = random.randint(6, 15)
-        self.vida = 100
-        self.color = (0, random.randint(100, 150), 100) #
-        self.rect = pygame.Rect(self.x, self.y, self.tamano, self.tamano)
-        
-    def crecer(self):
-        self.vida += 0.05
-        if self.vida > 100:
-            self.vida = 100
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.tamano = 12
+        self.imagen = cargar_imagen_segura(
+            os.path.join(IMAGES_DIR, "alga.png"), tam=(12, 12), color=(0, 100, 0)
+        )
 
-    def dibujar(self, superficie):
-        self.rect = pygame.draw.circle(superficie, self.color, (int(self.x), int(self.y)), self.tamano // 2)
+    def dibujar(self, surf):
+        surf.blit(self.imagen, (self.x, self.y))
+
 
 class Huevo(Entidad):
-    def __init__(self, x_h, y_h):
-        super().__init__(x_h, y_h)
+    def __init__(self, x, y):
+        super().__init__(x, y)
         self.tamano = 15
-        self.tiempo_incubacion = random.randint(300, 600)
-        self.imagen = cargar_imagen_segura(os.path.join(IMAGES_DIR, "huevo.png"), tam=(self.tamano, self.tamano))
-        self.rect = self.imagen.get_rect(topleft=(self.x, self.y))
+        self.imagen = cargar_imagen_segura(os.path.join(IMAGES_DIR, "huevo.png"), tam=(15, 15))
+        self.rect = self.imagen.get_rect(topleft=(x, y))
 
-    def incubar(self, ecosistema_ref):
-        self.tiempo_incubacion -= 1
-        
-        if self.tiempo_incubacion <= 0:
-          
-            nueva_gallina = Gallina(self.x, self.y)
-            ecosistema_ref.animales.append(nueva_gallina)
-            return True 
-        return False
+    def incubar(self, eco):
+        # No hay lógica en el original: placeholder
+        pass
 
-    def dibujar(self, superficie):
-        self.rect = self.imagen.get_rect(topleft=(self.x, self.y)) 
-        superficie.blit(self.imagen, (self.x, self.y))
+    def dibujar(self, surf):
+        surf.blit(self.imagen, (self.x, self.y))
 
 
 class Animal(Entidad):
-    """Clase base para todos los animales, con lógica de movimiento y vida."""
-    def __init__(self, nombre_animal, tipo_animal, x_ini, y_ini, imagen_ruta, default_face_left=False):
-        super().__init__(x_ini, y_ini)
-        self.nombre = nombre_animal
-        self.tipo = tipo_animal
-        self.vida = 100.0 
-        self.velocidad = random.randint(1, 3)
+    def __init__(self, nombre, tipo, x, y, img_path, default_face_left=False):
+        super().__init__(x, y)
+        self.nombre = nombre
+        self.tipo = tipo
+        self.vida = 100
         self.tamano = 35
-        self.reproduccion_contador = random.randint(200, 400)
-        
-        imagen_base = cargar_imagen_segura(imagen_ruta, tam=(self.tamano, self.tamano))
-        
-        if default_face_left == True:
-            self.imagen_original_derecha = pygame.transform.flip(imagen_base, True, False)
-            self.imagen_original_izquierda = imagen_base
-            self.mirando_izquierda = True
-            self.imagen = self.imagen_original_izquierda
-        else:
-            self.imagen_original_derecha = imagen_base
-            self.imagen_original_izquierda = pygame.transform.flip(imagen_base, True, False)
-            self.mirando_izquierda = False
-            self.imagen = self.imagen_original_derecha
-        
+        self.velocidad = random.randint(1, 3)
 
-        self.target_x = random.randint(0, ANCHO)
-        self.target_y = random.randint(0, ALTO)
-        self.cambio_objetivo_timer = random.randint(60, 180)
+        base = cargar_imagen_segura(img_path, tam=(35, 35))
+        # Determina imágenes orientadas izquierda/derecha
+        self.img_R = pygame.transform.flip(base, True, False) if default_face_left else base
+        self.img_L = base if default_face_left else pygame.transform.flip(base, True, False)
+        self.imagen = self.img_L if default_face_left else self.img_R
+        self.mirando_izq = default_face_left
 
+        self.target_x, self.target_y = random.randint(0, ANCHO), random.randint(0, ALTO)
+        self.timer = 0
+        self.rect = self.imagen.get_rect(topleft=(x, y))
 
-    def mover(self, target_x_param, target_y_param, ecosistema_ref):
-        
-        target_x_real = target_x_param
-        target_y_real = target_y_param
-        
-        if target_x_real is None or target_y_real is None:
-            self.cambio_objetivo_timer -= 1
-            
-            obj_simple = Entidad(self.target_x, self.target_y)
-            
-           
-            if self.cambio_objetivo_timer <= 0:
-                self.target_x = random.randint(0, ANCHO)
-                self.target_y = random.randint(0, ALTO)
-                self.cambio_objetivo_timer = random.randint(60, 180)
-            
-            dist_al_objetivo = distancia(self, obj_simple)
-            if dist_al_objetivo < self.velocidad * 2:
-                self.target_x = random.randint(0, ANCHO)
-                self.target_y = random.randint(0, ALTO)
-                self.cambio_objetivo_timer = random.randint(60, 180)
-            
-            target_x_real = self.target_x
-            target_y_real = self.target_y
+    def mover(self, tx, ty, ecosistema):
+    
+        if tx is None:
+            self.timer -= 1
+            if self.timer <= 0 or distancia(self, (self.target_x, self.target_y)) < self.velocidad:
+                self.target_x, self.target_y = random.randint(0, ANCHO), random.randint(0, ALTO)
+                self.timer = random.randint(60, 180)
+            tx, ty = self.target_x, self.target_y
 
-        dx_raw = target_x_real - self.x
-        dy_raw = target_y_real - self.y
-
-        distancia_para_parar = self.velocidad / 2
-        
-        if abs(dx_raw) < distancia_para_parar and abs(dy_raw) < distancia_para_parar:
+        dx, dy = tx - self.x, ty - self.y
+        if abs(dx) < 2 and abs(dy) < 2:
             return
 
-        
-    
-        if dx_raw < 0 and self.mirando_izquierda == False:
-            self.imagen = self.imagen_original_izquierda
-            self.mirando_izquierda = True
-        
-        if dx_raw > 0 and self.mirando_izquierda == True:
-            self.imagen = self.imagen_original_derecha
-            self.mirando_izquierda = False
-        
+        if dx < 0 and not self.mirando_izq:
+            self.imagen = self.img_L
+            self.mirando_izq = True
+        elif dx > 0 and self.mirando_izq:
+            self.imagen = self.img_R
+            self.mirando_izq = False
 
-        ndx, ndy = normalizar_vector(dx_raw, dy_raw)
-        
-        move_x = ndx * self.velocidad
-        move_y = ndy * self.velocidad
+        ndx, ndy = normalizar_vector(dx, dy)
+        mx, my = ndx * self.velocidad, ndy * self.velocidad
 
-
-        obstaculos_rects = []
-        if ecosistema_ref.lago is not None:
-            obstaculos_rects.append(ecosistema_ref.lago.rect_orilla)
-        for arbol in ecosistema_ref.arboles:
-            obstaculos_rects.append(arbol.rect)
-        if ecosistema_ref.casa is not None:
-            obstaculos_rects.append(ecosistema_ref.casa.rect)
-   
-        es_acua_anfibio = (self.tipo == "Pez" or self.tipo == "Rana")
-        
-        
-        futuro_rect_x = pygame.Rect(self.x + move_x, self.y, self.tamano, self.tamano)
-        for obstaculo in obstaculos_rects:
-            if futuro_rect_x.colliderect(obstaculo):
-                if es_acua_anfibio == False:
-                    move_x = 0
-                    self.cambio_objetivo_timer = 0
-                    break
+        obstaculos = ecosistema.obtener_obstaculos()
+        es_acuatico = self.tipo in ["Pez", "Rana"]
 
         
-        futuro_rect_y = pygame.Rect(self.x, self.y + move_y, self.tamano, self.tamano)
-        for obstaculo in obstaculos_rects:
-            if futuro_rect_y.colliderect(obstaculo):
-                if es_acua_anfibio == False:
-                    move_y = 0
-                    self.cambio_objetivo_timer = 0
-                    break
+        if not any(
+            pygame.Rect(self.x + mx, self.y, self.tamano, self.tamano).colliderect(o)
+            for o in obstaculos
+        ) or es_acuatico:
+            self.x += mx
+
         
-        self.x += move_x
-        self.y += move_y
-        
-        
+        if not any(
+            pygame.Rect(self.x, self.y + my, self.tamano, self.tamano).colliderect(o)
+            for o in obstaculos
+        ) or es_acuatico:
+            self.y += my
+
+        # Restringe posición para la mayoría de animales (no peces)
         if self.tipo != "Pez":
-            if self.x < 0:
-                self.x = 0
-            if self.x > ANCHO - self.tamano:
-                self.x = ANCHO - self.tamano
-                
-            if self.y < 0:
-                self.y = 0
-            if self.y > ALTO - self.tamano:
-                self.y = ALTO - self.tamano
+            self.x = max(0, min(ANCHO - self.tamano, self.x))
+            self.y = max(0, min(ALTO - self.tamano, self.y))
+
+        self.rect.topleft = (self.x, self.y)
 
     def envejecer(self):
         self.vida -= random.uniform(0.01, 0.04)
-        
-    def esta_vivo(self):
-        if self.vida > 0.0:
-            return True
-        else:
-            return False
 
-    def dibujar(self, superficie):
-  
+    def esta_vivo(self):
+        return self.vida > 0
+
+    def dibujar(self, surf):
+        surf.blit(self.imagen, (self.x, self.y))
+        dibujar_corazones(surf, self.x, self.y, self.vida)
+        txt = pygame.font.SysFont(None, 16).render(self.nombre, True, (0, 0, 0))
+        surf.blit(txt, (self.x + 5, self.y + 35))
+
 
 class Vaca(Animal):
-    def __init__(self, x_v, y_v):
-        ruta_img = os.path.join(IMAGES_DIR, "vaca.png")
-        super().__init__("Vaca", "herbivoro", x_v, y_v, ruta_img, default_face_left=True)
+    def __init__(self, x, y):
+        super().__init__("Vaca", "herbivoro", x, y, os.path.join(IMAGES_DIR, "vaca.png"), True)
         self.leche = 0
-        self.contador_leche = 0
-        self.tamano = 45 
-    def actualizar(self, ecosistema_ref):
-        plantas_disponibles = ecosistema_ref.plantas
-        target_x_mov, target_y_mov = None, None
-        
-        
-        if self.vida < 90:
-        
-            objetivo_cercano = None
-            distancia_minima = 99999999.0
-            for planta_actual in plantas_disponibles:
-                dist_actual = distancia(self, planta_actual)
-                if dist_actual < distancia_minima:
-                    distancia_minima = dist_actual
-                    objetivo_cercano = planta_actual
+        self.cnt = 0
 
-            if objetivo_cercano is not None:
-                distancia_actual = distancia(self, objetivo_cercano)
-                
-                if distancia_actual < 15: 
-                    ecosistema_ref.plantas.remove(objetivo_cercano)
-                    self.vida = min(self.vida + 15, 100) 
-                else:
-                    target_x_mov = objetivo_cercano.x
-                    target_y_mov = objetivo_cercano.y
-        
-        super().mover(target_x_mov, target_y_mov, ecosistema_ref)
+    def actualizar(self, eco):
+        t = None
+        if self.vida < 90 and eco.plantas:
+            obj = min(eco.plantas, key=lambda p: distancia(self, p))
+            if distancia(self, obj) < 15:
+                eco.plantas.remove(obj)
+                self.vida = min(100, self.vida + 15)
+            else:
+                t = (obj.x, obj.y)
+
+        self.mover(t[0] if t else None, t[1] if t else None, eco)
         self.envejecer()
-        
-    
-        self.contador_leche += 1
-        if self.contador_leche >= 100:
-            self.leche = min(self.leche + 1, 10)
-            self.contador_leche = 0
+
+        self.cnt += 1
+        if self.cnt >= 100:
+            self.leche = min(10, self.leche + 1)
+            self.cnt = 0
+
 
 class Gallina(Animal):
-    def __init__(self, x_g, y_g):
-        ruta_img = os.path.join(IMAGES_DIR, "gallina.png")
-        super().__init__("Gallina", "herbivoro", x_g, y_g, ruta_img, default_face_left=True)
-        self.contador_huevo = random.randint(80, 200)
+    def __init__(self, x, y):
+        super().__init__("Gallina", "herbivoro", x, y, os.path.join(IMAGES_DIR, "gallina.png"), True)
+        self.cnt_h = random.randint(80, 200)
 
-    def actualizar(self, ecosistema_ref):
-        plantas_disponibles = ecosistema_ref.plantas
-        target_x_mov, target_y_mov = None, None
-    
-        if self.vida < 90 and len(plantas_disponibles) > 0:
-            objetivo_cercano = None
-            distancia_minima = 99999999.0
-            for planta_actual in plantas_disponibles:
-                dist_actual = distancia(self, planta_actual)
-                if dist_actual < distancia_minima:
-                    distancia_minima = dist_actual
-                    objetivo_cercano = planta_actual
-                    
-            if objetivo_cercano is not None:
-                if distancia(self, objetivo_cercano) < 15:
-                    ecosistema_ref.plantas.remove(objetivo_cercano)
-                    self.vida = min(self.vida + 5, 100)
-                else:
-                    target_x_mov = objetivo_cercano.x
-                    target_y_mov = objetivo_cercano.y
-        
-        super().mover(target_x_mov, target_y_mov, ecosistema_ref)
+    def actualizar(self, eco):
+        t = None
+        if self.vida < 90 and eco.plantas:
+            obj = min(eco.plantas, key=lambda p: distancia(self, p))
+            if distancia(self, obj) < 15:
+                eco.plantas.remove(obj)
+                self.vida = min(100, self.vida + 5)
+            else:
+                t = (obj.x, obj.y)
+
+        self.mover(t[0] if t else None, t[1] if t else None, eco)
         self.envejecer()
-        
-      
-        self.contador_huevo -= 1
-        if self.contador_huevo <= 0:
-            huevo_nuevo = Huevo(self.x, self.y)
-            ecosistema_ref.huevos.append(huevo_nuevo)
-            self.contador_huevo = random.randint(120, 250)
+
+        self.cnt_h -= 1
+        if self.cnt_h <= 0:
+            eco.huevos.append(Huevo(self.x, self.y))
+            self.cnt_h = random.randint(120, 250)
+
 
 class Zorro(Animal):
-    def __init__(self, x_z, y_z):
-        ruta_img = os.path.join(IMAGES_DIR, "zorro.png")
-        super().__init__("Zorro", "carnivoro", x_z, y_z, ruta_img, default_face_left=True)
-        self.velocidad = 3
+    def __init__(self, x, y):
+        super().__init__("Zorro", "carnivoro", x, y, os.path.join(IMAGES_DIR, "zorro.png"), True)
 
-    def actualizar(self, ecosistema_ref):
-        presas_posibles = [a for a in ecosistema_ref.animales if a.nombre == "Gallina" and a.esta_vivo()]
-        target_x_mov, target_y_mov = None, None
-        
-        if self.vida < 90 and len(presas_posibles) > 0:
-        
-            objetivo_cercano = None
-            distancia_minima = 99999999.0
-            for presa_actual in presas_posibles:
-                dist_actual = distancia(self, presa_actual)
-                if dist_actual < distancia_minima:
-                    distancia_minima = dist_actual
-                    objetivo_cercano = presa_actual
-                    
-            if objetivo_cercano is not None:
-                if distancia(self, objetivo_cercano) < 15: 
-                    objetivo_cercano.vida = 0
-                    self.vida = min(self.vida + 20, 100)
-                
-                    target_x_mov = self.x + random.randint(-50, 50)
-                    target_y_mov = self.y + random.randint(-50, 50)
-                else:
-                    target_x_mov = objetivo_cercano.x
-                    target_y_mov = objetivo_cercano.y
-        
-        super().mover(target_x_mov, target_y_mov, ecosistema_ref)
+    def actualizar(self, eco):
+        p = [a for a in eco.animales if isinstance(a, Gallina)]
+        t = None
+        if self.vida < 90 and p:
+            obj = min(p, key=lambda x: distancia(self, x))
+            if distancia(self, obj) < 15:
+                obj.vida = 0
+                self.vida = min(100, self.vida + 20)
+            else:
+                t = (obj.x, obj.y)
+
+        self.mover(t[0] if t else None, t[1] if t else None, eco)
         self.envejecer()
 
-class Caballo(Animal):
-    def __init__(self, x_c, y_c):
-        ruta_img = os.path.join(IMAGES_DIR, "caballo.png")
-        super().__init__("Caballo", "herbivoro", x_c, y_c, ruta_img, default_face_left=True)
-        self.velocidad = random.randint(2, 4)
-
-    def actualizar(self, ecosistema_ref):
-        plantas_disponibles = ecosistema_ref.plantas
-        target_x_mov, target_y_mov = None, None
-        
-        if self.vida < 90 and len(plantas_disponibles) > 0:
-            objetivo_cercano = None
-            distancia_minima = 99999999.0
-            for planta_actual in plantas_disponibles:
-                dist_actual = distancia(self, planta_actual)
-                if dist_actual < distancia_minima:
-                    distancia_minima = dist_actual
-                    objetivo_cercano = planta_actual
-                    
-            if objetivo_cercano is not None:
-                if distancia(self, objetivo_cercano) < 15:
-                    ecosistema_ref.plantas.remove(objetivo_cercano)
-                    self.vida = min(self.vida + 15, 100)
-                else:
-                    target_x_mov = objetivo_cercano.x
-                    target_y_mov = objetivo_cercano.y
-        
-        super().mover(target_x_mov, target_y_mov, ecosistema_ref)
-        self.envejecer()
-        
-        self.reproduccion_contador -= 1
-        
-        if self.reproduccion_contador <= 0:
-            if random.random() < 0.08:
-
-                obstaculos = ecosistema_ref.obtener_obstaculos()
-                x_spawn, y_spawn = generar_spawn_seguro(obstaculos, self.tamano)
-                nuevo_caballo = Caballo(x_spawn, y_spawn)
-                ecosistema_ref.agregar_animal(nuevo_caballo)
-            self.reproduccion_contador = random.randint(300, 500)
 
 class Pez(Animal):
-    def __init__(self, x_p, y_p):
-        ruta_img = os.path.join(IMAGES_DIR, "pez.png")
-        super().__init__("Pez", "herbivoro", x_p, y_p, ruta_img, default_face_left=True)
-        self.velocidad = random.randint(1, 2)
-        self.tamano = 30 # Peces son más pequeños
-        self.target_x = x_p
-        self.target_y = y_p
+    def __init__(self, x, y):
+        super().__init__("Pez", "herbivoro", x, y, os.path.join(IMAGES_DIR, "pez.png"), True)
+        self.tamano = 30
 
-    def mover(self, target_x_param, target_y_param, ecosistema_ref):
-    
-        target_x_real, target_y_real = target_x_param, target_y_param
-        lago_agua_rect = ecosistema_ref.lago.rect_agua
-        
-        if target_x_real is None or target_y_real is None:
-            self.cambio_objetivo_timer -= 1
-            if self.cambio_objetivo_timer <= 0:
-               
-                self.target_x = random.randint(lago_agua_rect.x, lago_agua_rect.right - self.tamano)
-                self.target_y = random.randint(lago_agua_rect.y, lago_agua_rect.bottom - self.tamano)
-                self.cambio_objetivo_timer = random.randint(60, 180)
-            target_x_real, target_y_real = self.target_x, self.target_y
+    def mover(self, tx, ty, eco):
+        r = eco.lago.rect_agua
+        if tx is None:
+            self.timer -= 1
+            if self.timer <= 0:
+                self.target_x = random.randint(r.x, r.right - 30)
+                self.target_y = random.randint(r.y, r.bottom - 30)
+                self.timer = random.randint(60, 180)
+            tx, ty = self.target_x, self.target_y
 
-        dx_raw = target_x_real - self.x
-        dy_raw = target_y_real - self.y
-        
-        if abs(dx_raw) < 1.0 and abs(dy_raw) < 1.0: return
-        
-        
-        if dx_raw < 0 and self.mirando_izquierda == False:
-            self.imagen = self.imagen_original_izquierda
-            self.mirando_izquierda = True
-        
-        if dx_raw > 0 and self.mirando_izquierda == True:
-            self.imagen = self.imagen_original_derecha
-            self.mirando_izquierda = False
-            
-        ndx, ndy = normalizar_vector(dx_raw, dy_raw)
-        move_x = ndx * self.velocidad
-        move_y = ndy * self.velocidad
+        dx, dy = tx - self.x, ty - self.y
+        if abs(dx) < 1 and abs(dy) < 1:
+            return
 
-        self.x += move_x
-        self.y += move_y
+        if dx < 0 and not self.mirando_izq:
+            self.imagen = self.img_L
+            self.mirando_izq = True
+        elif dx > 0 and self.mirando_izq:
+            self.imagen = self.img_R
+            self.mirando_izq = False
 
+        ndx, ndy = normalizar_vector(dx, dy)
+        self.x = max(r.x, min(self.x + ndx * self.velocidad, r.right - 30))
+        self.y = max(r.y, min(self.y + ndy * self.velocidad, r.bottom - 30))
+        self.rect.topleft = (self.x, self.y)
 
-        self.x = max(lago_agua_rect.x, min(self.x, lago_agua_rect.right - self.tamano))
-        self.y = max(lago_agua_rect.y, min(self.y, lago_agua_rect.bottom - self.tamano))
-        
-    def envejecer(self):
-       
-        self.vida -= random.uniform(0.005, 0.02)
+    def actualizar(self, eco):
+        t = None
+        if self.vida < 90 and eco.algas:
+            obj = min(eco.algas, key=lambda a: distancia(self, a))
+            if distancia(self, obj) < 15:
+                eco.algas.remove(obj)
+                self.vida = min(100, self.vida + 10)
+            else:
+                t = (obj.x, obj.y)
 
-    def actualizar(self, ecosistema_ref):
-        algas_cercanas = ecosistema_ref.algas
-        target_x_mov, target_y_mov = None, None
-        
-        if self.vida < 90 and len(algas_cercanas) > 0:
-            objetivo_cercano = None
-            distancia_minima = 99999999.0
-            for alga_actual in algas_cercanas:
-                dist_actual = distancia(self, alga_actual)
-                if dist_actual < distancia_minima:
-                    distancia_minima = dist_actual
-                    objetivo_cercano = alga_actual
-                    
-            if objetivo_cercano is not None:
-                if distancia(self, objetivo_cercano) < 15:
-                    ecosistema_ref.algas.remove(objetivo_cercano)
-                    self.vida = min(self.vida + 10, 100)
-                else:
-                    target_x_mov = objetivo_cercano.x
-                    target_y_mov = objetivo_cercano.y
-        
-        self.mover(target_x_mov, target_y_mov, ecosistema_ref)
+        self.mover(t[0] if t else None, t[1] if t else None, eco)
         self.envejecer()
+
+
+class Caballo(Animal):
+    def __init__(self, x, y):
+        super().__init__("Caballo", "herbivoro", x, y, os.path.join(IMAGES_DIR, "caballo.png"), True)
+        self.reproduccion_contador = random.randint(300, 500)
+
+    def actualizar(self, eco):
+        t = None
+        if self.vida < 90 and eco.plantas:
+            obj = min(eco.plantas, key=lambda p: distancia(self, p))
+            if distancia(self, obj) < 15:
+                eco.plantas.remove(obj)
+                self.vida = min(100, self.vida + 15)
+            else:
+                t = (obj.x, obj.y)
+
+        self.mover(t[0] if t else None, t[1] if t else None, eco)
+        self.envejecer()
+
+        self.reproduccion_contador -= 1
+        if self.reproduccion_contador <= 0:
+            if random.random() < 0.08:
+                x, y = generar_spawn_seguro(eco.obtener_obstaculos(), 35)
+                eco.agregar_animal(Caballo(x, y))
+            self.reproduccion_contador = random.randint(300, 500)
 
 
 class Oso(Animal):
-    def __init__(self, x_o, y_o):
-        ruta_img = os.path.join(IMAGES_DIR, "oso.png")
-        super().__init__("Oso", "omnivoro", x_o, y_o, ruta_img, default_face_left=True)
-        self.velocidad = random.randint(1, 2)
-        self.tamano = 40 
+    def __init__(self, x, y):
+        super().__init__("Oso", "omnivoro", x, y, os.path.join(IMAGES_DIR, "oso.png"), True)
 
-    def actualizar(self, ecosistema_ref):
-   
-        presas_posibles = [a for a in ecosistema_ref.animales if a.nombre == "Gallina" and a.esta_vivo()]
-        plantas_disponibles = ecosistema_ref.plantas
-        target_x_mov, target_y_mov = None, None
-        
+    def actualizar(self, eco):
+        p = [a for a in eco.animales if isinstance(a, Gallina)]
+        t = None
         if self.vida < 90:
-            azar = random.random()
-            
-            if azar < 0.5 and len(presas_posibles) > 0:
-           
-                objetivo_cercano = min(presas_posibles, key=lambda p: distancia(self, p))
-                
-                if distancia(self, objetivo_cercano) < 18:
-                    objetivo_cercano.vida = 0
-                    self.vida = min(self.vida + 15, 100)
+            if p and random.random() < 0.5:
+                obj = min(p, key=lambda x: distancia(self, x))
+                if distancia(self, obj) < 18:
+                    obj.vida = 0
+                    self.vida += 15
                 else:
-                    target_x_mov, target_y_mov = objetivo_cercano.x, objetivo_cercano.y
-                        
-            elif len(plantas_disponibles) > 0:
-           
-                objetivo_cercano = min(plantas_disponibles, key=lambda p: distancia(self, p))
-                
-                if distancia(self, objetivo_cercano) < 15:
-                    ecosistema_ref.plantas.remove(objetivo_cercano)
-                    self.vida = min(self.vida + 10, 100)
+                    t = (obj.x, obj.y)
+            elif eco.plantas:
+                obj = min(eco.plantas, key=lambda x: distancia(self, x))
+                if distancia(self, obj) < 15:
+                    eco.plantas.remove(obj)
+                    self.vida += 10
                 else:
-                    target_x_mov, target_y_mov = objetivo_cercano.x, objetivo_cercano.y
-        
-        super().mover(target_x_mov, target_y_mov, ecosistema_ref)
+                    t = (obj.x, obj.y)
+
+        self.mover(t[0] if t else None, t[1] if t else None, eco)
         self.envejecer()
+
 
 class Cerdo(Animal):
-    def __init__(self, x_ce, y_ce):
-        ruta_img = os.path.join(IMAGES_DIR, "cerdo.png")
-        super().__init__("Cerdo", "omnivoro", x_ce, y_ce, ruta_img, default_face_left=True)
-        self.tamano = 38
-        self.velocidad = random.randint(1, 2)
+    def __init__(self, x, y):
+        super().__init__("Cerdo", "omnivoro", x, y, os.path.join(IMAGES_DIR, "cerdo.png"), True)
 
-    def actualizar(self, ecosistema_ref):
-        
-        plantas_disponibles = ecosistema_ref.plantas
-        huevos_disponibles = ecosistema_ref.huevos
-        
-        target_x_mov, target_y_mov = None, None
-        
+    def actualizar(self, eco):
+        t = None
         if self.vida < 90:
-            
-    
-            if len(huevos_disponibles) > 0:
-                objetivo_cercano = min(huevos_disponibles, key=lambda h: distancia(self, h))
-                
-                if distancia(self, objetivo_cercano) < 20:
-                    ecosistema_ref.huevos.remove(objetivo_cercano)
-                    self.vida = min(self.vida + 15, 100)
+            if eco.huevos:
+                obj = min(eco.huevos, key=lambda x: distancia(self, x))
+                if distancia(self, obj) < 20:
+                    eco.huevos.remove(obj)
+                    self.vida += 15
                 else:
-                    target_x_mov, target_y_mov = objetivo_cercano.x, objetivo_cercano.y
-                    
-          
-            elif len(plantas_disponibles) > 0:
-                objetivo_cercano = min(plantas_disponibles, key=lambda p: distancia(self, p))
-                
-                if distancia(self, objetivo_cercano) < 15:
-                    ecosistema_ref.plantas.remove(objetivo_cercano)
-                    self.vida = min(self.vida + 10, 100)
+                    t = (obj.x, obj.y)
+            elif eco.plantas:
+                obj = min(eco.plantas, key=lambda x: distancia(self, x))
+                if distancia(self, obj) < 15:
+                    eco.plantas.remove(obj)
+                    self.vida += 10
                 else:
-                    target_x_mov, target_y_mov = objetivo_cercano.x, objetivo_cercano.y
+                    t = (obj.x, obj.y)
 
-        
-        super().mover(target_x_mov, target_y_mov, ecosistema_ref)
+        self.mover(t[0] if t else None, t[1] if t else None, eco)
         self.envejecer()
+
 
 class Lobo(Animal):
-    def __init__(self, x_l, y_l):
-        ruta_img = os.path.join(IMAGES_DIR, "lobo.png")
-        super().__init__("Lobo", "carnivoro", x_l, y_l, ruta_img, default_face_left=True)
-        self.velocidad = 4 
+    def __init__(self, x, y):
+        super().__init__("Lobo", "carnivoro", x, y, os.path.join(IMAGES_DIR, "lobo.png"), False)
+        self.velocidad = 4
 
-    def actualizar(self, ecosistema_ref):
-      
-        presas_posibles = [a for a in ecosistema_ref.animales if a.tipo == "herbivoro" and a.nombre != "Pez" and a.esta_vivo()]
-        target_x_mov, target_y_mov = None, None
-        
-        if self.vida < 90 and len(presas_posibles) > 0:
-            objetivo_cercano = min(presas_posibles, key=lambda p: distancia(self, p))
-            
-            if distancia(self, objetivo_cercano) < 25: 
-                objetivo_cercano.vida = 0
-                self.vida = min(self.vida + 30, 100) 
-          
-                target_x_mov = self.x + random.randint(-80, 80)
-                target_y_mov = self.y + random.randint(-80, 80)
+    def actualizar(self, eco):
+        p = [a for a in eco.animales if a.tipo == "herbivoro" and not isinstance(a, Pez)]
+        t = None
+        if self.vida < 90 and p:
+            obj = min(p, key=lambda x: distancia(self, x))
+            if distancia(self, obj) < 25:
+                obj.vida = 0
+                self.vida += 30
             else:
-                target_x_mov = objetivo_cercano.x
-                target_y_mov = objetivo_cercano.y
-        
-        super().mover(target_x_mov, target_y_mov, ecosistema_ref)
+                t = (obj.x, obj.y)
+
+        self.mover(t[0] if t else None, t[1] if t else None, eco)
         self.envejecer()
-        
+
+
 class Rana(Animal):
-    def __init__(self, x_r, y_r):
-        ruta_img = os.path.join(IMAGES_DIR, "rana.png")
-        super().__init__("Rana", "omnivoro", x_r, y_r, ruta_img, default_face_left=True)
-        self.tamano = 25
-        self.en_agua = False
+    def __init__(self, x, y):
+        super().__init__("Rana", "omnivoro", x, y, os.path.join(IMAGES_DIR, "rana.png"), True)
 
-    def mover(self, target_x_param, target_y_param, ecosistema_ref):
-   
-        dx_raw = self.target_x - self.x
-        dy_raw = self.target_y - self.y
-
-        if abs(dx_raw) < 1.0 and abs(dy_raw) < 1.0:
-            self.cambio_objetivo_timer = 0 
-            return
-            
-        ndx, ndy = normalizar_vector(dx_raw, dy_raw)
-        self.x += ndx * self.velocidad
-        self.y += ndy * self.velocidad
-
-      
-        self.x = max(0, min(self.x, ANCHO - self.tamano))
-        self.y = max(0, min(self.y, ALTO - self.tamano))
-
-
-    def actualizar(self, ecosistema_ref):
-        
-      
-        self.en_agua = ecosistema_ref.lago.rect_agua.collidepoint(self.x + self.tamano/2, self.y + self.tamano/2)
-        
-        self.cambio_objetivo_timer -= 1
-        
-        if self.cambio_objetivo_timer <= 0:
-            if self.en_agua == True:
-                
-                self.target_x = random.randint(0, ANCHO)
-                self.target_y = random.randint(0, ALTO)
-                while ecosistema_ref.lago.rect_agua.collidepoint(self.target_x, self.target_y):
-                     self.target_x = random.randint(0, ANCHO)
-                     self.target_y = random.randint(0, ALTO)
+    def actualizar(self, eco):
+        self.timer -= 1
+        if self.timer <= 0:
+            if eco.lago.rect_agua.collidepoint(self.x, self.y):
+                self.target_x, self.target_y = random.randint(0, ANCHO), random.randint(0, ALTO)
             else:
-                rect_agua = ecosistema_ref.lago.rect_agua
-                self.target_x = random.randint(rect_agua.x, rect_agua.right)
-                self.target_y = random.randint(rect_agua.y, rect_agua.bottom)
-            
-            self.cambio_objetivo_timer = random.randint(100, 200)
+                r = eco.lago.rect_agua
+                self.target_x, self.target_y = random.randint(r.x, r.right), random.randint(r.y, r.bottom)
+            self.timer = random.randint(100, 200)
 
-        super().mover(None, None, ecosistema_ref)
+        self.mover(None, None, eco)
         self.envejecer()
-
-
 
 
 class Arbol(Entidad):
-    def __init__(self, x_a, y_a):
-        super().__init__(x_a, y_a)
-        self.tamano = random.randint(40, 60)
-        self.imagen = cargar_imagen_segura(os.path.join(IMAGES_DIR, "arbol.png"), tam=(self.tamano, self.tamano), color=(139, 69, 19))
-        self.rect = self.imagen.get_rect(topleft=(self.x, self.y))
-        
-    def dibujar(self, superficie):
-        self.rect = self.imagen.get_rect(topleft=(self.x, self.y)) 
-        superficie.blit(self.imagen, (self.x, self.y))
-      
-        pygame.draw.rect(superficie, (0, 0, 0, 0), self.rect, 1) 
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.tamano = 40
+        self.imagen = cargar_imagen_segura(os.path.join(IMAGES_DIR, "arbol.png"), tam=(40, 40))
+        self.rect = self.imagen.get_rect(topleft=(x, y))
+
+    def dibujar(self, surf):
+        surf.blit(self.imagen, (self.x, self.y))
+
 
 class Casa(Entidad):
-    def __init__(self, x_c, y_c):
-        super().__init__(x_c, y_c)
-        self.ancho = 100
-        self.alto = 100
-        self.imagen = cargar_imagen_segura(os.path.join(IMAGES_DIR, "casa.png"), tam=(self.ancho, self.alto), color=(150, 150, 150))
-        self.rect = self.imagen.get_rect(topleft=(self.x, self.y))
-        
-    def dibujar(self, superficie):
-        self.rect = self.imagen.get_rect(topleft=(self.x, self.y)) 
-        superficie.blit(self.imagen, (self.x, self.y))
+    def __init__(self, x, y):
+        super().__init__(x, y)
+        self.tamano = 100
+        self.imagen = cargar_imagen_segura(os.path.join(IMAGES_DIR, "casa.png"), tam=(100, 100))
+        self.rect = self.imagen.get_rect(topleft=(x, y))
+
+    def dibujar(self, surf):
+        surf.blit(self.imagen, (self.x, self.y))
 
 
-class Lago(Entidad):
-    def __init__(self, x_l, y_l, ancho_l, alto_l):
-        super().__init__(x_l, y_l)
-        self.ancho = ancho_l
-        self.alto = alto_l
-        
-     
-        self.rect_orilla = pygame.Rect(self.x, self.y, self.ancho, self.alto)
-        
-        
+class Lago:
+    def __init__(self, x, y, w, h):
+        # rect_orilla es la orilla, rect_agua es la zona con agua interna
+        self.rect_orilla = pygame.Rect(x, y, w, h)
         self.rect_agua = pygame.Rect(
-            self.x + GROSOR_ORILLA, 
-            self.y + GROSOR_ORILLA, 
-            self.ancho - 2 * GROSOR_ORILLA, 
-            self.alto - 2 * GROSOR_ORILLA
+            x + GROSOR_ORILLA, y + GROSOR_ORILLA, w - 2 * GROSOR_ORILLA, h - 2 * GROSOR_ORILLA
+        )
+        self.img_orilla = cargar_imagen_segura(
+            os.path.join(IMAGES_DIR, "orilla.png"), tam=(w, h), color=(210, 180, 140)
+        )
+        self.img_agua = cargar_imagen_segura(
+            os.path.join(IMAGES_DIR, "lago.png"),
+            tam=(self.rect_agua.width, self.rect_agua.height),
+            color=(0, 0, 139),
         )
 
-    def dibujar(self, superficie):
-     
-        pygame.draw.rect(superficie, (139, 69, 19), self.rect_orilla)
-        
-    
-        pygame.draw.rect(superficie, (0, 191, 255), self.rect_agua)
+    def dibujar(self, surf):
+        surf.blit(self.img_orilla, self.rect_orilla)
+        surf.blit(self.img_agua, self.rect_agua)
 
 
-
-class Persona(Animal): 
+class Persona(Animal):
     def __init__(self, x, y):
-        ruta_img = os.path.join(IMAGES_DIR, "persona.png")
-        super().__init__("Jugador", "humano", x, y, ruta_img, default_face_left=False)
-        self.velocidad = 3
+        super().__init__("Jugador", "humano", x, y, os.path.join(IMAGES_DIR, "persona.png"))
         self.inventario = {"huevos": 0, "leche": 0}
         self.tamano = 40
-        self.esta_arrastrando = False
-        self.objeto_arrastrando = None
+        self.obj_drag = None
+        self.velocidad = 10
 
-    def mover(self, teclas_presionadas, ecosistema_ref):
-        move_x = 0
-        move_y = 0
+    def mover(self, keys, eco):
         
-        if teclas_presionadas[pygame.K_LEFT] or teclas_presionadas[pygame.K_a]:
-            move_x = -self.velocidad
-        if teclas_presionadas[pygame.K_RIGHT] or teclas_presionadas[pygame.K_d]:
-            move_x = self.velocidad
-        if teclas_presionadas[pygame.K_UP] or teclas_presionadas[pygame.K_w]:
-            move_y = -self.velocidad
-        if teclas_presionadas[pygame.K_DOWN] or teclas_presionadas[pygame.K_s]:
-            move_y = self.velocidad
+        mx, my = 0, 0
+        if keys[pygame.K_a] or keys[pygame.K_LEFT]:
+            mx = -self.velocidad
+        if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
+            mx = self.velocidad
+        if keys[pygame.K_w] or keys[pygame.K_UP]:
+            my = -self.velocidad
+        if keys[pygame.K_s] or keys[pygame.K_DOWN]:
+            my = self.velocidad
 
-        if move_x < 0 and self.mirando_izquierda == False:
-            self.imagen = self.imagen_original_izquierda
-            self.mirando_izquierda = True
+        if mx < 0 and not self.mirando_izq:
+            self.imagen = self.img_L
+            self.mirando_izq = True
+        elif mx > 0 and self.mirando_izq:
+            self.imagen = self.img_R
+            self.mirando_izq = False
+
+        obs = eco.obtener_obstaculos()
+        if not any(pygame.Rect(self.x + mx, self.y, self.tamano, self.tamano).colliderect(o) for o in obs):
+            self.x += mx
+        if not any(pygame.Rect(self.x, self.y + my, self.tamano, self.tamano).colliderect(o) for o in obs):
+            self.y += my
+
+        self.x = max(0, min(ANCHO - self.tamano, self.x))
+        self.y = max(0, min(ALTO - self.tamano, self.y))
+        self.rect.topleft = (self.x, self.y)
+
+    def recoger(self, eco):
         
-        if move_x > 0 and self.mirando_izquierda == True:
-            self.imagen = self.imagen_original_derecha
-            self.mirando_izquierda = False
+        for h in eco.huevos[:]:
+            if self.rect.colliderect(h.rect):
+                eco.huevos.remove(h)
+                self.inventario["huevos"] += 1
 
+        for a in eco.animales:
+            if isinstance(a, Vaca) and distancia(self, a) < 50 and a.leche > 0:
+                self.inventario["leche"] += 1
+                a.leche = 0
 
-
-        obstaculos = [a.rect for a in ecosistema_ref.arboles]
-        if ecosistema_ref.casa is not None:
-            obstaculos.append(ecosistema_ref.casa.rect)
-        if ecosistema_ref.lago is not None:
-            obstaculos.append(ecosistema_ref.lago.rect_orilla)
-
+    def intentar_arrastrar(self, pos, eco):
         
-        futuro_rect_x = pygame.Rect(self.x + move_x, self.y, self.tamano, self.tamano)
-        for obstaculo in obstaculos:
-            if futuro_rect_x.colliderect(obstaculo):
-                move_x = 0
+        for a in eco.animales:
+            if a.rect.collidepoint(pos) and distancia(self, a) < 100:
+                self.obj_drag = a
                 break
 
-        
-        futuro_rect_y = pygame.Rect(self.x, self.y + move_y, self.tamano, self.tamano)
-        for obstaculo in obstaculos:
-            if futuro_rect_y.colliderect(obstaculo):
-                move_y = 0
-                break
-
-        self.x += move_x
-        self.y += move_y
-        
-       
-        self.x = max(0, min(self.x, ANCHO - self.tamano))
-        self.y = max(0, min(self.y, ALTO - self.tamano))
-
-    def recoger(self, ecosistema_ref):
-        huevos_a_recoger = []
-        for huevo in ecosistema_ref.huevos:
-            if self.rect.colliderect(huevo.rect):
-                huevos_a_recoger.append(huevo)
-
-        for huevo in huevos_a_recoger:
-            ecosistema_ref.huevos.remove(huevo)
-            self.inventario["huevos"] += 1
-
-
-        vacas = [a for a in ecosistema_ref.animales if isinstance(a, Vaca) and a.leche > 0]
-        if vacas:
-            vaca_cercana = min(vacas, key=lambda v: distancia(self, v))
-            if distancia(self, vaca_cercana) < 50: 
-                if vaca_cercana.leche > 0:
-                    self.inventario["leche"] += 1
-                    vaca_cercana.leche -= 1
-    
-    def intentar_arrastrar(self, mouse_pos, ecosistema_ref):
-        if self.objeto_arrastrando is None:
-            for animal in ecosistema_ref.animales:
-                if animal.rect.collidepoint(mouse_pos):
-                    if distancia(self, animal) < 100: # si esta cerca
-                        self.esta_arrastrando = True
-                        self.objeto_arrastrando = animal
-                        break
-    
-    def soltar_objeto(self):
-        self.esta_arrastrando = False
-        self.objeto_arrastrando = None
-
-
+    def soltar(self):
+        self.obj_drag = None
 
 class Ecosistema:
     def __init__(self):
@@ -899,341 +557,380 @@ class Ecosistema:
         self.huevos = []
         self.casa = None
         self.lago = None
-        self.turno = 0
 
-    def agregar_animal(self, animal):
-        self.animales.append(animal)
-        
+    def agregar_animal(self, a):
+        self.animales.append(a)
+
     def obtener_obstaculos(self):
-        """Devuelve una lista de todos los rects que bloquean el paso."""
-        obstaculos = [a.rect for a in self.arboles]
-        if self.casa is not None:
-            obstaculos.append(self.casa.rect)
-        if self.lago is not None:
-            obstaculos.append(self.lago.rect_orilla)
-        return obstaculos
-
+       
+        obs = [a.rect for a in self.arboles]
+        if self.casa:
+            obs.append(self.casa.rect)
+        if self.lago:
+            obs.append(self.lago.rect_orilla)
+        return obs
 
     def actualizar(self):
-        self.turno += 1
-        
-        
-        animales_vivos = []
-        for animal in self.animales:
-            animal.actualizar(self)
-            if animal.esta_vivo() == True:
-                animales_vivos.append(animal)
-        self.animales = animales_vivos
-        
-      
-        plantas_vivas = []
-        for planta in self.plantas:
-            planta.crecer()
-            if planta.vida > 0:
-                plantas_vivas.append(planta)
-        self.plantas = plantas_vivas
-        
-        algas_vivas = []
-        for alga in self.algas:
-            alga.crecer()
-            if alga.vida > 0:
-                algas_vivas.append(alga)
-        self.algas = algas_vivas
+       
+        self.animales = [a for a in self.animales if a.esta_vivo()]
+        for a in self.animales:
+            a.actualizar(self)
 
-     
-        huevos_pendientes = []
-        for huevo in self.huevos:
-            eclosiono = huevo.incubar(self)
-            if eclosiono == False:
-                huevos_pendientes.append(huevo)
-        self.huevos = huevos_pendientes
         
-  
+        for p in self.plantas:
+            p.crecer()
+
+       
+        for h in self.huevos[:]:
+            h.incubar(self)
+
+        
         if len(self.plantas) < 50:
             x, y = generar_spawn_seguro(self.obtener_obstaculos(), 10)
             self.plantas.append(Planta(x, y))
+
         
-        if len(self.algas) < 5:
-          
-            if self.lago is not None:
-                rect_agua = self.lago.rect_agua
-                x = random.randint(rect_agua.x, rect_agua.right)
-                y = random.randint(rect_agua.y, rect_agua.bottom)
-                self.algas.append(Alga(x, y))
+        if len(self.huevos) >= 5:
+            for _ in range(5):
+                self.huevos.pop(0)
+            x, y = generar_spawn_seguro(self.obtener_obstaculos(), 35)
+            self.agregar_animal(Gallina(x, y))
 
-    def dibujar(self, superficie):
-  
-        pass 
+    def dibujar(self, surf):
+        
+        if self.lago:
+            self.lago.dibujar(surf)
+
+        for x in self.algas + self.plantas + self.huevos + self.arboles:
+            x.dibujar(surf)
+
+        if self.casa:
+            self.casa.dibujar(surf)
+
+        for a in self.animales:
+            a.dibujar(surf)
 
 
-def inicializar_ecosistema_completo():
-    """Función para crear el ecosistema y poblarlo."""
+
+def inicializar():
+   
     eco = Ecosistema()
- 
     eco.casa = Casa(ANCHO - 120, 20)
+    eco.lago = Lago(ANCHO // 2 - 150, ALTO - 200, 300, 150)
+
     
+    for p in [(50, 50), (150, 100), (300, 30), (700, 400)]:
+        eco.arboles.append(Arbol(*p))
 
-    lago_x = ANCHO // 2 - 150
-    lago_y = ALTO - 200
-    eco.lago = Lago(lago_x, lago_y, 300, 150)
-    
-    obstaculos = eco.obtener_obstaculos()
+    obs = eco.obtener_obstaculos()
 
-
-    arbol_posiciones = [
-        (50, 50), (150, 100), (300, 30), (700, 400)
-    ]
-    for x, y in arbol_posiciones:
-        eco.arboles.append(Arbol(x, y))
-
-  
+   
     for _ in range(30):
-        x, y = generar_spawn_seguro(obstaculos, 10)
+        x, y = generar_spawn_seguro(obs, 10)
         eco.plantas.append(Planta(x, y))
 
     
-    if eco.lago is not None:
-        rect_agua = eco.lago.rect_agua
-        for _ in range(5):
-            x = random.randint(rect_agua.x, rect_agua.right)
-            y = random.randint(rect_agua.y, rect_agua.bottom)
-            eco.algas.append(Alga(x, y))
+    clases = [Vaca, Gallina, Zorro, Caballo, Oso, Cerdo, Lobo, Rana]
+    cantidades = [3, 5, 1, 2, 1, 2, 1, 2]
+
+    for cls, cant in zip(clases, cantidades):
+        for _ in range(cant):
+            x, y = 0, 0
+            if cls == Rana:
+                x, y = random.randint(0, ANCHO), random.randint(0, ALTO)
+            else:
+                x, y = generar_spawn_seguro(obs, 35)
+
+            if x != 0 or y != 0:
+                eco.agregar_animal(cls(x, y))
 
    
-    animales_a_spawnear = {
-        Vaca: 3, Gallina: 5, Zorro: 1, Caballo: 2, Oso: 1, Cerdo: 2, Lobo: 1, Rana: 2, Pez: 4
-    }
-    
-    for especie, cantidad in animales_a_spawnear.items():
-        for _ in range(cantidad):
-            
-            es_pez = (especie == Pez)
-            es_rana = (especie == Rana) 
-            
-            if es_pez == True:
-               
-                rect_agua = eco.lago.rect_agua
-                x = random.randint(rect_agua.x, rect_agua.right - 35)
-                y = random.randint(rect_agua.y, rect_agua.bottom - 35)
-            
-            elif es_rana == True:
-                 
-                lago_orilla = eco.lago.rect_orilla
-                x = random.randint(lago_orilla.x - 50, lago_orilla.right + 50)
-                y = random.randint(lago_orilla.y - 50, lago_orilla.bottom + 50)
-                
-                
-                x = max(0, min(x, ANCHO - 35))
-                y = max(0, min(y, ALTO - 35))
-                
-            else:
-                # Spawn en tierra
-                x, y = generar_spawn_seguro(obstaculos, 35)
-
-            eco.agregar_animal(especie(x, y))
+    for _ in range(4):
+        r = eco.lago.rect_agua
+        x = random.randint(r.x, r.right - 30)
+        y = random.randint(r.y, r.bottom - 30)
+        eco.agregar_animal(Pez(x, y))
 
     return eco
 
+# capa de persistencia
 
+import json
+import os
 
-def dibujar_corazones(superficie, pos_x, pos_y, vida_porcentaje_entidad, max_corazones=3):
-    """Dibuja un indicador de vida en forma de corazones."""
+class Persistencia:
+    def __init__(self, archivo="partida.json"):
+        self.archivo = archivo
     
-    porcentaje_calc = vida_porcentaje_entidad / 100.0
-    corazones_llenos_float = porcentaje_calc * max_corazones
-    corazones_llenos = int(corazones_llenos_float)
+    def guarda(self, ecosistema, persona):
+        try:
+            with open(self.archivo, 'w', encoding='utf-8') as fos:
+                json.dump(
+                    ecosistema.to_dict(persona),
+                    fos,
+                    indent=2,
+                    ensure_ascii=False
+                )
+        except Exception as e:
+            raise Exception(f"Error al guardar: {e}")
     
-   
-    if (corazones_llenos_float - corazones_llenos) > 0.1:
-        corazones_llenos = corazones_llenos + 1
-    if corazones_llenos > max_corazones:
-        corazones_llenos = max_corazones
+    def rescatar(self):
+        try:
+            if not os.path.exists(self.archivo):
+                return None, None
+            
+            with open(self.archivo, 'r', encoding='utf-8') as fis:
+                data = json.load(fis)
+
+                persona = Persona.from_dict(data["persona"])
+                ecosistema = Ecosistema.from_dict(data)
+
+                return ecosistema, persona
         
-    total_ancho = max_corazones * TAMANO_CORAZON + (max_corazones - 1) * 2
-    offset_inicial_x = 35 // 2
-    offset_final_x = offset_inicial_x - total_ancho // 2
-    start_x = pos_x + offset_final_x
-    
-    
+        except Exception as e:
+            raise Exception(f"Error al rescatar: {e}")
+
+
+
+
+# capa vista
+
+pygame.init()
+ventana = pygame.display.set_mode((ANCHO, ALTO))
+pygame.display.set_caption("Simulador de Ecosistema")
+reloj = pygame.time.Clock()
+
+
+FUENTE_GRANDE = pygame.font.SysFont(None, 48)
+FUENTE_MEDIANA = pygame.font.SysFont(None, 32)
+fuente_nombre = pygame.font.SysFont(None, 16)
+FUENTE_INSTRUCCIONES = pygame.font.SysFont(None, 24)
+
+
+try:
+    img_lleno = cargar_imagen_segura(
+        os.path.join(IMAGES_DIR, "corazon_lleno.png"),
+        tam=(10, 10),
+        color=(255, 0, 0)
+    )
+
+    img_vacio = cargar_imagen_segura(
+        os.path.join(IMAGES_DIR, "corazon_vacio.png"),
+        tam=(10, 10),
+        color=(50, 0, 0)
+    )
+
+    if img_lleno.get_width() == 10:
+        USAR_IMAGEN_CORAZON = True
+
+    FONDO_JUEGO = cargar_imagen_segura(
+        os.path.join(IMAGES_DIR, "fondo.png"),
+        tam=(ANCHO, ALTO)
+    )
+
+    FONDO_MENU = cargar_imagen_segura(
+        os.path.join(IMAGES_DIR, "menu_fondo.png"),
+        tam=(ANCHO, ALTO)
+    )
+
+except:
+    USAR_IMAGEN_CORAZON = False
+
+    FONDO_JUEGO = pygame.Surface((ANCHO, ALTO))
+    FONDO_JUEGO.fill((135, 206, 235))
+
+    FONDO_MENU = pygame.Surface((ANCHO, ALTO))
+    FONDO_MENU.fill(COLOR_MENU)
+
+
+def dibujar_corazones(superficie, x, y, vida, max_corazones=3):
+    llenos = int((vida / 100) * max_corazones)
+    start_x = x + 35 // 2 - (max_corazones * 12) // 2
+
     for i in range(max_corazones):
-        
-        corazon_x = start_x + i * (TAMANO_CORAZON + 2)
-        corazon_y = pos_y - 8 - TAMANO_CORAZON
-        
-        color_corazon = (255, 0, 0) if USAR_IMAGEN_CORAZON == False else (0, 0, 0)
+        cx = start_x + i * 12
+        cy = y - 18
 
-        if i < corazones_llenos:
-            if USAR_IMAGEN_CORAZON == True:
-                superficie.blit(IMAGEN_CORAZON_LLENO, (corazon_x, corazon_y))
+        if i < llenos:
+            if USAR_IMAGEN_CORAZON:
+                superficie.blit(img_lleno, (cx, cy))
             else:
-                pygame.draw.circle(superficie, color_corazon, (corazon_x + TAMANO_CORAZON // 2, corazon_y + TAMANO_CORAZON // 2), TAMANO_CORAZON // 2)
+                pygame.draw.circle(superficie, (255, 0, 0), (cx+5, cy+5), 5)
         else:
-            if USAR_IMAGEN_CORAZON == True:
-                superficie.blit(IMAGEN_CORAZON_VACIO, (corazon_x, corazon_y)) 
+            if USAR_IMAGEN_CORAZON:
+                superficie.blit(img_vacio, (cx, cy))
             else:
-                pygame.draw.circle(superficie, (50, 0, 0), (corazon_x + TAMANO_CORAZON // 2, corazon_y + TAMANO_CORAZON // 2), TAMANO_CORAZON // 2)
-                pygame.draw.circle(superficie, (255, 255, 255), (corazon_x + TAMANO_CORAZON // 2, corazon_y + TAMANO_CORAZON // 2), TAMANO_CORAZON // 2, 1)
+                pygame.draw.circle(superficie, (50, 0, 0), (cx+5, cy+5), 5)
 
-
-Animal.dibujar = lambda self, superficie: (
-    superficie.blit(self.imagen, (self.x, self.y)),
-    setattr(self, 'rect', self.imagen.get_rect(topleft=(self.x, self.y))),
-    dibujar_corazones(superficie, self.x, self.y, self.vida),
-    superficie.blit(fuente_nombre.render(self.nombre, True, (0, 0, 0)), 
-                    fuente_nombre.render(self.nombre, True, (0, 0, 0)).get_rect(centerx=self.x + self.tamano // 2, y=self.y + self.tamano + 2))
-)
-
-
-def ecosistema_dibujar(self, superficie):
-  
-    superficie.blit(FONDO_JUEGO, (0, 0)) 
-    
-    
-    self.lago.dibujar(superficie)
-    
-   
-    for alga in self.algas:
-        alga.dibujar(superficie)
-        
-    
-    for planta in self.plantas:
-        planta.dibujar(superficie)
-    
-    for huevo in self.huevos:
-        huevo.dibujar(superficie)
-
-   
-    for arbol in self.arboles:
-        arbol.dibujar(superficie)
-        
-    
-    self.casa.dibujar(superficie)
-    
-   
-    for animal in self.animales:
-        animal.dibujar(superficie)
-
-Ecosistema.dibujar = ecosistema_dibujar 
 
 class MenuPrincipal:
-    """Clase simple para manejar la pantalla de inicio."""
     def __init__(self):
-        self.boton_rect = pygame.Rect(ANCHO // 2 - 100, ALTO // 2 + 50, 200, 50)
+        self.btn_jugar = pygame.Rect(ANCHO//2 - 100, ALTO//2 - 40, 200, 50)
+        self.btn_cargar = pygame.Rect(ANCHO//2 - 100, ALTO//2 + 30, 200, 50)
 
-    def dibujar(self, superficie):
-        superficie.blit(FONDO_MENU, (0, 0))
-        
- 
-        texto_titulo = FUENTE_GRANDE.render("Simulador de Ecosistema Básico", True, COLOR_TEXTO)
-        superficie.blit(texto_titulo, texto_titulo.get_rect(center=(ANCHO // 2, ALTO // 2 - 50)))
+    def dibujar(self, surf):
+        surf.blit(FONDO_MENU, (0, 0))
 
+        titulo = FUENTE_GRANDE.render("Ecosistema", True, COLOR_TEXTO)
+        surf.blit(titulo, titulo.get_rect(center=(ANCHO//2, ALTO//3 - 30)))
 
-        pygame.draw.rect(superficie, COLOR_BOTON, self.boton_rect)
-        texto_boton = FUENTE_MEDIANA.render("INICIAR SIMULACIÓN", True, COLOR_TEXTO)
-        superficie.blit(texto_boton, texto_boton.get_rect(center=self.boton_rect.center))
-        
-    def manejar_clic(self, pos):
-        if self.boton_rect.collidepoint(pos):
-            return "JUGANDO"
+        pygame.draw.rect(surf, COLOR_BOTON, self.btn_jugar, border_radius=10)
+        txt_jugar = FUENTE_MEDIANA.render("Iniciar", True, COLOR_TEXTO)
+        surf.blit(txt_jugar, txt_jugar.get_rect(center=self.btn_jugar.center))
+
+        if os.path.exists(ARCHIVO_GUARDADO):
+            pygame.draw.rect(surf, COLOR_BOTON_CARGAR, self.btn_cargar, border_radius=10)
+            txt_cargar = FUENTE_MEDIANA.render("CARGAR PARTIDA", True, COLOR_TEXTO)
+            surf.blit(txt_cargar, txt_cargar.get_rect(center=self.btn_cargar.center))
+
+        instrucciones = [
+            "CONTROLES:",
+            "- WASD: Moverse | E: Recoger",
+            "- ESPACIO: Modo Spawn | G: Guardar",
+            "- Arrastrar Animales: Clic + Mover"
+        ]
+
+        y_pos = ALTO - 130
+        for linea in instrucciones:
+            txt = FUENTE_INSTRUCCIONES.render(linea, True, COLOR_TEXTO)
+            surf.blit(txt, (ANCHO//2 - txt.get_width()//2, y_pos))
+            y_pos += 25
+
+    def click(self, pos):
+        if self.btn_jugar.collidepoint(pos):
+            return "NUEVA"
+
+        if os.path.exists(ARCHIVO_GUARDADO) and self.btn_cargar.collidepoint(pos):
+            return "CARGAR"
+
         return "MENU"
 
 
+def manejar_clic_animal(pos, eco):
+    x, y = pos[0] - 17, pos[1] - 17
+    rect = pygame.Rect(x, y, 35, 35)
 
-def manejar_clic_animal(pos):
-    """Maneja el clic en modo SPAWN para agregar un animal."""
-    global ecosistema
-    
-  
-    x_spawn, y_spawn = pos[0] - 35 // 2, pos[1] - 35 // 2
-    
-
-    opciones = [Vaca, Gallina, Zorro, Caballo, Oso, Cerdo, Lobo, Rana]
-    
    
-    if ecosistema.lago.rect_agua.collidepoint(pos):
-        nueva_entidad = Pez(x_spawn, y_spawn)
+    obs = eco.obtener_obstaculos()
+    if any(rect.colliderect(o) for o in obs):
+        return
+
+    
+    en_agua = eco.lago.rect_agua.colliderect(rect)
+
+    
+    cls = random.choice([Vaca, Gallina, Zorro, Caballo, Oso, Cerdo, Lobo, Rana])
+
+    if en_agua:
+        eco.agregar_animal(Pez(x, y))
     else:
-      
-        EspecieElegida = random.choice(opciones)
-        nueva_entidad = EspecieElegida(x_spawn, y_spawn)
-        
-    ecosistema.agregar_animal(nueva_entidad)
+        eco.agregar_animal(cls(x, y))
 
 
-ecosistema = inicializar_ecosistema_completo()
-persona = Persona(ANCHO // 2, ALTO // 2)
+ecosistema = None
+persona = None
 menu = MenuPrincipal()
 
-ejecutando = True
-while ejecutando:
-    
-    for evento in pygame.event.get():
-        if evento.type == pygame.QUIT:
-            ejecutando = False
-            
-        if ESTADO_JUEGO == "MENU":
-            if evento.type == pygame.MOUSEBUTTONDOWN:
-                ESTADO_JUEGO = menu.manejar_clic(evento.pos)
-        
-        elif ESTADO_JUEGO == "JUGANDO":
-           
-            if evento.type == pygame.MOUSEBUTTONDOWN:
-                if persona.rect.collidepoint(evento.pos):
-                    persona.intentar_arrastrar(evento.pos, ecosistema)
-                elif MODO_SPAWN_ACTIVO:
-                    manejar_clic_animal(evento.pos)
-                    
-            if evento.type == pygame.MOUSEBUTTONUP:
-                persona.soltar_objeto()
-                
-            if evento.type == pygame.MOUSEMOTION and persona.esta_arrastrando:
-              
-                if persona.objeto_arrastrando is not None:
-                    obj = persona.objeto_arrastrando
-                    obj.x = evento.pos[0] - obj.tamano // 2
-                    obj.y = evento.pos[1] - obj.tamano // 2
+estado = "MENU"
+modo_spawn = False
+corriendo = True
+mensaje_guardado = 0
 
-            if evento.type == pygame.KEYDOWN:
-                if evento.key == pygame.K_SPACE:
-                    global MODO_SPAWN_ACTIVO
-                    MODO_SPAWN_ACTIVO = not MODO_SPAWN_ACTIVO
-                if evento.key == pygame.K_e:
-                    persona.recoger(ecosistema)
-    
-    
-    if ESTADO_JUEGO == "JUGANDO":
+
+while corriendo:
+
+    for e in pygame.event.get():
+
+        if e.type == pygame.QUIT:
+            corriendo = False
+
         
-    
-        teclas = pygame.key.get_pressed()
-        persona.mover(teclas, ecosistema)
-        
-      
-        ecosistema.actualizar()
+        if estado == "MENU":
+            if e.type == pygame.MOUSEBUTTONDOWN:
+                accion = menu.click(e.pos)
+
+                if accion == "NUEVA":
+                    ecosistema = inicializar()
+                    persona = Persona(ANCHO//2, ALTO//2)
+                    estado = "JUGANDO"
+
+                elif accion == "CARGAR":
+                    eco_cargado, per_cargado = cargar_partida()
+                    if eco_cargado:
+                        ecosistema = eco_cargado
+                        persona = per_cargado
+                        estado = "JUGANDO"
 
        
+        elif estado == "JUGANDO":
+
+            
+            if e.type == pygame.MOUSEBUTTONDOWN:
+                if persona.rect.collidepoint(e.pos):
+                    persona.intentar_arrastrar(e.pos, ecosistema)
+
+                elif modo_spawn and e.button == 1:
+                    manejar_clic_animal(e.pos, ecosistema)
+
+            
+            if e.type == pygame.MOUSEBUTTONUP:
+                persona.soltar()
+
+          
+            if e.type == pygame.MOUSEMOTION and persona.obj_drag:
+                persona.obj_drag.x = e.pos[0] - 20
+                persona.obj_drag.y = e.pos[1] - 20
+                persona.obj_drag.rect.topleft = (persona.obj_drag.x, persona.obj_drag.y)
+
+            
+            if e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_SPACE:
+                    modo_spawn = not modo_spawn
+
+                if e.key == pygame.K_e:
+                    persona.recoger(ecosistema)
+
+                if e.key == pygame.K_g:
+                    guardar_partida(ecosistema, persona)
+                    mensaje_guardado = 60
+
+    if estado == "JUGANDO":
+
+        persona.mover(pygame.key.get_pressed(), ecosistema)
+        ecosistema.actualizar()
+
+        ventana.blit(FONDO_JUEGO, (0, 0))
+
         ecosistema.dibujar(ventana)
         persona.dibujar(ventana)
 
-       
-        texto_inventario = fuente_nombre.render(
-            f"Huevos: {persona.inventario['huevos']} | Leche: {persona.inventario['leche']}", 
-            True, (0, 0, 0)
+        info = fuente_nombre.render(
+            f"Huevos: {persona.inventario['huevos']} | Leche: {persona.inventario['leche']}",
+            True,
+            COLOR_HUD
         )
-        ventana.blit(texto_inventario, (10, 10))
-        
-        texto_estado = fuente_nombre.render(
-            f"Turno: {ecosistema.turno} | Animales: {len(ecosistema.animales)} | Plantas: {len(ecosistema.plantas)}",
-            True, (0, 0, 0)
+        ventana.blit(info, (10, 10))
+
+        txt_animales = fuente_nombre.render(
+            f"Animales: {len(ecosistema.animales)}",
+            True,
+            COLOR_HUD
         )
-        ventana.blit(texto_estado, (10, 30))
-        
-       
-        color_modo = (0, 150, 0) if MODO_SPAWN_ACTIVO else (150, 0, 0)
-        texto_modo = fuente_nombre.render(f"MODO SPAWN (ESPACIO): {'ACTIVO' if MODO_SPAWN_ACTIVO else 'INACTIVO'}", True, color_modo)
-        ventana.blit(texto_modo, (ANCHO - texto_modo.get_width() - 10, 10))
+        ventana.blit(txt_animales, (10, 30))
 
+        modo = fuente_nombre.render(
+            f"SPAWN: {'ON' if modo_spawn else 'OFF'} | G: Guardar",
+            True,
+            (0,150,0) if modo_spawn else (50,50,50)
+        )
+        ventana.blit(modo, (ANCHO - 200, 10))
 
-    elif ESTADO_JUEGO == "MENU":
+        if mensaje_guardado > 0:
+            msg = FUENTE_MEDIANA.render("PARTIDA GUARDADA", True, (255, 255, 0))
+            ventana.blit(msg, (ANCHO//2 - msg.get_width()//2, ALTO - 50))
+            mensaje_guardado -= 1
+
+    elif estado == "MENU":
         menu.dibujar(ventana)
 
     pygame.display.flip()
