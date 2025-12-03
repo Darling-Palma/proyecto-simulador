@@ -59,6 +59,11 @@ def generar_spawn_cerca(px, py, obs, tam, r=100):
 class Entidad:
     def __init__(self, x, y): self.x, self.y = x, y
     def dibujar(self, surf): pass
+    def to_dict(self): return {"x": self.x, "y": self.y}
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data["x"], data["y"])
 
 class Planta(Entidad):
     def __init__(self, x, y):
@@ -67,12 +72,29 @@ class Planta(Entidad):
         self.rect = pygame.Rect(x, y, 15, 15)
     def crecer(self): self.vida -= 0.01
     def dibujar(self, surf): surf.blit(self.img, (self.x, self.y))
+    
+    def to_dict(self):
+        data = super().to_dict()
+        data["vida"] = self.vida
+        data["__class__"] = "Planta"
+        return data
+
+    @classmethod
+    def from_dict(cls, data):
+        p = cls(data["x"], data["y"])
+        p.vida = data["vida"]
+        return p
 
 class Alga(Entidad):
     def __init__(self, x, y):
         super().__init__(x, y); self.tamano=12
         self.img = cargar_imagen_segura(os.path.join(IMAGES_DIR, "alga.png"), tam=(12,12), color=(0,100,0))
     def dibujar(self, surf): surf.blit(self.img, (self.x, self.y))
+    
+    def to_dict(self):
+        data = super().to_dict()
+        data["__class__"] = "Alga"
+        return data
 
 class Huevo(Entidad):
     def __init__(self, x, y):
@@ -81,6 +103,11 @@ class Huevo(Entidad):
         self.rect = self.img.get_rect(topleft=(x,y))
     def incubar(self, eco): pass
     def dibujar(self, surf): surf.blit(self.img, (self.x, self.y))
+    
+    def to_dict(self):
+        data = super().to_dict()
+        data["__class__"] = "Huevo"
+        return data
 
 class Animal(Entidad):
     def __init__(self, nom, tipo, x, y, img, flip=False):
@@ -116,6 +143,28 @@ class Animal(Entidad):
     def dibujar(self, surf):
         surf.blit(self.imagen, (self.x, self.y))
         dibujar_corazones(surf, self.x, self.y, self.vida)
+    def actualizar(self, eco): pass # Las subclases deben implementarlo
+
+    # Métodos de Serialización
+    def to_dict(self):
+        data = super().to_dict()
+        data.update({
+            "nombre": self.nombre,
+            "tipo": self.tipo,
+            "vida": self.vida,
+            "velocidad": self.velocidad,
+            "mirando_izq": self.mirando_izq,
+            "tx": self.tx,
+            "ty": self.ty,
+            "timer": self.timer
+        })
+        return data
+
+    @classmethod
+    def from_dict(cls, data):
+        
+        raise NotImplementedError("from_dict debe ser implementado en subclases de Animal")
+
 
 class Vaca(Animal):
     def __init__(self, x, y): super().__init__("Vaca", "herb", x, y, os.path.join(IMAGES_DIR, "vaca.png"), True); self.leche=0; self.c=0
@@ -127,6 +176,16 @@ class Vaca(Animal):
             else: t=(o.x,o.y)
         self.mover(t[0] if t else None, t[1] if t else None, eco); self.envejecer(); self.c+=1
         if self.c>=100: self.leche=min(10, self.leche+1); self.c=0
+    
+    def to_dict(self):
+        data = super().to_dict()
+        data.update({"leche": self.leche, "c": self.c, "__class__": "Vaca"})
+        return data
+    @classmethod
+    def from_dict(cls, data):
+        a = cls(data["x"], data["y"])
+        a.__dict__.update(data)
+        return a
 
 class Gallina(Animal):
     def __init__(self, x, y): super().__init__("Gallina", "herb", x, y, os.path.join(IMAGES_DIR, "gallina.png"), True); self.ch=200
@@ -138,6 +197,16 @@ class Gallina(Animal):
             else: t=(o.x,o.y)
         self.mover(t[0] if t else None, t[1] if t else None, eco); self.envejecer(); self.ch-=1
         if self.ch<=0: eco.huevos.append(Huevo(self.x, self.y)); self.ch=250
+    
+    def to_dict(self):
+        data = super().to_dict()
+        data.update({"ch": self.ch, "__class__": "Gallina"})
+        return data
+    @classmethod
+    def from_dict(cls, data):
+        a = cls(data["x"], data["y"])
+        a.__dict__.update(data)
+        return a
 
 class Zorro(Animal):
     def __init__(self, x, y): super().__init__("Zorro", "carn", x, y, os.path.join(IMAGES_DIR, "zorro.png"), True)
@@ -148,6 +217,16 @@ class Zorro(Animal):
             if distancia(self,o)<15: o.vida=0; self.vida+=20
             else: t=(o.x,o.y)
         self.mover(t[0] if t else None, t[1] if t else None, eco); self.envejecer()
+
+    def to_dict(self):
+        data = super().to_dict()
+        data["__class__"] = "Zorro"
+        return data
+    @classmethod
+    def from_dict(cls, data):
+        a = cls(data["x"], data["y"])
+        a.__dict__.update(data)
+        return a
 
 class Pez(Animal):
     def __init__(self, x, y): super().__init__("Pez", "herb", x, y, os.path.join(IMAGES_DIR, "pez.png"), True); self.tamano=30
@@ -165,6 +244,16 @@ class Pez(Animal):
             if distancia(self,o)<15: eco.algas.remove(o); self.vida+=10
             else: t=(o.x,o.y)
         self.mover(t[0] if t else None, t[1] if t else None, eco); self.envejecer()
+    
+    def to_dict(self):
+        data = super().to_dict()
+        data["__class__"] = "Pez"
+        return data
+    @classmethod
+    def from_dict(cls, data):
+        a = cls(data["x"], data["y"])
+        a.__dict__.update(data)
+        return a
 
 class Caballo(Animal):
     def __init__(self, x, y): super().__init__("Caballo", "herb", x, y, os.path.join(IMAGES_DIR, "caballo.png"), True); self.rep=400
@@ -178,6 +267,16 @@ class Caballo(Animal):
         if self.rep<=0:
             if random.random()<0.08: x,y=generar_spawn_seguro(eco.obtener_obstaculos(),35); eco.agregar_animal(Caballo(x,y))
             self.rep=400
+    
+    def to_dict(self):
+        data = super().to_dict()
+        data.update({"rep": self.rep, "__class__": "Caballo"})
+        return data
+    @classmethod
+    def from_dict(cls, data):
+        a = cls(data["x"], data["y"])
+        a.__dict__.update(data)
+        return a
 
 class Oso(Animal):
     def __init__(self, x, y): super().__init__("Oso", "omni", x, y, os.path.join(IMAGES_DIR, "oso.png"), True)
@@ -193,6 +292,16 @@ class Oso(Animal):
                 if distancia(self,o)<15: eco.plantas.remove(o); self.vida+=10
                 else: t=(o.x,o.y)
         self.mover(t[0] if t else None, t[1] if t else None, eco); self.envejecer()
+    
+    def to_dict(self):
+        data = super().to_dict()
+        data["__class__"] = "Oso"
+        return data
+    @classmethod
+    def from_dict(cls, data):
+        a = cls(data["x"], data["y"])
+        a.__dict__.update(data)
+        return a
 
 class Cerdo(Animal):
     def __init__(self, x, y): super().__init__("Cerdo", "omni", x, y, os.path.join(IMAGES_DIR, "cerdo.png"), True)
@@ -208,6 +317,16 @@ class Cerdo(Animal):
                 if distancia(self,o)<15: eco.plantas.remove(o); self.vida+=10
                 else: t=(o.x,o.y)
         self.mover(t[0] if t else None, t[1] if t else None, eco); self.envejecer()
+    
+    def to_dict(self):
+        data = super().to_dict()
+        data["__class__"] = "Cerdo"
+        return data
+    @classmethod
+    def from_dict(cls, data):
+        a = cls(data["x"], data["y"])
+        a.__dict__.update(data)
+        return a
 
 class Lobo(Animal):
     def __init__(self, x, y): super().__init__("Lobo", "carn", x, y, os.path.join(IMAGES_DIR, "lobo.png"), False); self.velocidad=4
@@ -219,6 +338,16 @@ class Lobo(Animal):
             else: t=(o.x,o.y)
         self.mover(t[0] if t else None, t[1] if t else None, eco); self.envejecer()
 
+    def to_dict(self):
+        data = super().to_dict()
+        data["__class__"] = "Lobo"
+        return data
+    @classmethod
+    def from_dict(cls, data):
+        a = cls(data["x"], data["y"])
+        a.__dict__.update(data)
+        return a
+
 class Rana(Animal):
     def __init__(self, x, y): super().__init__("Rana", "omni", x, y, os.path.join(IMAGES_DIR, "rana.png"), True)
     def actualizar(self, eco):
@@ -228,6 +357,23 @@ class Rana(Animal):
             else: r=eco.lago.rect_agua; self.tx,self.ty=random.randint(r.x,r.right),random.randint(r.y,r.bottom)
             self.timer=150
         self.mover(None, None, eco); self.envejecer()
+    
+    def to_dict(self):
+        data = super().to_dict()
+        data["__class__"] = "Rana"
+        return data
+    @classmethod
+    def from_dict(cls, data):
+        a = cls(data["x"], data["y"])
+        a.__dict__.update(data)
+        return a
+
+
+CLASE_MAP = {
+#     "Planta": Planta, "Alga": Alga, "Huevo": Huevo, "Arbol": Arbol, "Casa": Casa,
+    "Vaca": Vaca, "Gallina": Gallina, "Zorro": Zorro, "Pez": Pez, "Caballo": Caballo,
+    "Oso": Oso, "Cerdo": Cerdo, "Lobo": Lobo, "Rana": Rana, "Persona": 'Persona' # La Persona se carga aparte
+}
 
 class Arbol(Entidad):
     def __init__(self, x, y):
@@ -235,6 +381,11 @@ class Arbol(Entidad):
         self.img = cargar_imagen_segura(os.path.join(IMAGES_DIR, "arbol.png"), tam=(40,40))
         self.rect = self.img.get_rect(topleft=(x,y))
     def dibujar(self, surf): surf.blit(self.img, (self.x, self.y))
+    
+    def to_dict(self):
+        data = super().to_dict()
+        data["__class__"] = "Arbol"
+        return data
 
 class Casa(Entidad):
     def __init__(self, x, y):
@@ -243,12 +394,26 @@ class Casa(Entidad):
         self.rect = self.img.get_rect(topleft=(x,y))
     def dibujar(self, surf): surf.blit(self.img, (self.x, self.y))
 
+    def to_dict(self):
+        data = super().to_dict()
+        data["__class__"] = "Casa"
+        return data
+
 class Lago:
     def __init__(self, x, y, w, h):
+        self.x, self.y, self.w, self.h = x, y, w, h
         self.rect_orilla = pygame.Rect(x,y,w,h); self.rect_agua = pygame.Rect(x+20,y+20,w-40,h-40)
         self.img_o = cargar_imagen_segura(os.path.join(IMAGES_DIR, "orilla.png"), tam=(w,h), color=(210,180,140))
         self.img_a = cargar_imagen_segura(os.path.join(IMAGES_DIR, "lago.png"), tam=(w-40,h-40), color=(0,0,139))
     def dibujar(self, surf): surf.blit(self.img_o, self.rect_orilla); surf.blit(self.img_a, self.rect_agua)
+
+    def to_dict(self):
+        return {"x": self.x, "y": self.y, "w": self.w, "h": self.h}
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data["x"], data["y"], data["w"], data["h"])
+
 
 class Persona(Animal):
     def __init__(self, x, y):
@@ -275,6 +440,26 @@ class Persona(Animal):
         for a in eco.animales:
             if a.rect.collidepoint(pos) and distancia(self, a)<100: self.obj_drag=a; break
     def soltar(self): self.obj_drag = None
+    
+    # Métodos de Serialización para Persona
+    def to_dict(self):
+        data = super().to_dict()
+        data.update({
+            "inventario": self.inventario.copy(),
+            "__class__": "Persona"
+        })
+        return data
+
+    @classmethod
+    def from_dict(cls, data):
+        p = cls(data["x"], data["y"])
+        # Cargar atributos de Animal (base)
+        for key in ["vida", "velocidad", "mirando_izq", "tx", "ty", "timer"]:
+            setattr(p, key, data.get(key, getattr(p, key)))
+        p.inventario = data.get("inventario", {"huevos": 0, "leche": 0})
+        p.rect.topleft = (p.x, p.y)
+        return p
+
 
 class Ecosistema:
     def __init__(self):
@@ -283,6 +468,7 @@ class Ecosistema:
     def agregar_animal(self, a): self.animales.append(a)
     def obtener_obstaculos(self):
         return [a.rect for a in self.arboles] + ([self.casa.rect] if self.casa else []) + ([self.lago.rect_orilla] if self.lago else [])
+    
     def actualizar(self):
         self.animales = [a for a in self.animales if a.esta_vivo()]
         for a in self.animales: a.actualizar(self)
@@ -292,11 +478,53 @@ class Ecosistema:
         if len(self.huevos)>=5:
             for _ in range(5): self.huevos.pop(0)
             x,y=generar_spawn_seguro(self.obtener_obstaculos(),35); self.agregar_animal(Gallina(x,y))
+            
     def dibujar(self, surf):
         if self.lago: self.lago.dibujar(surf)
         for x in self.algas + self.plantas + self.huevos + self.arboles: x.dibujar(surf)
         if self.casa: self.casa.dibujar(surf)
         for a in self.animales: a.dibujar(surf)
+        
+    # Métodos de Serialización para Ecosistema
+    def to_dict(self, persona):
+        return {
+            "persona": persona.to_dict(),
+            "animales": [a.to_dict() for a in self.animales if a != persona],
+            "plantas": [p.to_dict() for p in self.plantas],
+            "algas": [a.to_dict() for a in self.algas],
+            "arboles": [t.to_dict() for t in self.arboles],
+            "huevos": [h.to_dict() for h in self.huevos],
+            "casa": self.casa.to_dict() if self.casa else None,
+            "lago": self.lago.to_dict() if self.lago else None,
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        eco = cls()
+        
+        # Cargar estructuras fijas (Casa y Lago)
+        if data.get("casa"): eco.casa = Casa.from_dict(data["casa"])
+        if data.get("lago"): eco.lago = Lago.from_dict(data["lago"])
+        
+        # Cargar colecciones de entidades
+        for item in data.get("animales", []):
+            animal_cls = CLASE_MAP.get(item["__class__"])
+            if animal_cls: eco.animales.append(animal_cls.from_dict(item))
+            
+        for item in data.get("plantas", []):
+            eco.plantas.append(Planta.from_dict(item))
+            
+        for item in data.get("algas", []):
+            eco.algas.append(Alga.from_dict(item))
+
+        for item in data.get("arboles", []):
+            eco.arboles.append(Arbol.from_dict(item))
+
+        for item in data.get("huevos", []):
+            eco.huevos.append(Huevo.from_dict(item))
+
+        return eco
+
 
 def inicializar():
     eco = Ecosistema()
@@ -440,13 +668,36 @@ class Persistencia:
             with open(self.archivo, 'r', encoding='utf-8') as fis:
                 data = json.load(fis)
 
+                
                 persona = Persona.from_dict(data["persona"])
+                
+               
                 ecosistema = Ecosistema.from_dict(data)
 
                 return ecosistema, persona
         
         except Exception as e:
             raise Exception(f"Error al rescatar: {e}")
+
+
+def guardar_partida(ecosistema, persona, ruta):
+    """Función global para guardar una partida en una ruta específica."""
+    try:
+        Persistencia(ruta).guarda(ecosistema, persona)
+        return True
+    except Exception as e:
+        print(f"Error al guardar partida: {e}")
+        return False
+
+def cargar_partida(ruta):
+    """Función global para cargar una partida desde una ruta específica."""
+    try:
+        eco, per = Persistencia(ruta).rescatar()
+        return eco, per
+    except Exception as e:
+        print(f"Error al cargar partida: {e}")
+        return None, None
+
 
 # bucle 
 
@@ -478,15 +729,16 @@ while corriendo:
                 if accion == "JUGAR":
                     slot_actual = ruta
                     eco_c, per_c = cargar_partida(ruta) 
-                    if eco_c: 
+                    if eco_c and per_c: 
                         ecosistema, persona = eco_c, per_c
                     else: 
+                        
                         ecosistema, persona = inicializar(), Persona(ANCHO//2, ALTO//2) 
                     estado = "JUGANDO"
                 
                 elif accion == "CARGAR_AUTO":
                     eco_c, per_c = cargar_partida(ruta) 
-                    if eco_c:
+                    if eco_c and per_c:
                         ecosistema, persona = eco_c, per_c
                         slot_actual = RUTAS["auto"]
                         estado = "JUGANDO"
@@ -520,8 +772,10 @@ while corriendo:
         persona.dibujar(ventana)
         
         for a in ecosistema.animales:
-            txt = F_N.render(a.nombre, True, (0,0,0))
-            ventana.blit(txt, (a.x+5, a.y+35))
+            
+            if a != persona:
+                txt = F_N.render(a.nombre, True, (0,0,0))
+                ventana.blit(txt, (a.x+5, a.y+35))
 
         info = F_N.render(f"Huevos: {persona.inventario['huevos']} | Leche: {persona.inventario['leche']}", True, COLOR_HUD)
         ventana.blit(info, (10, 10))
