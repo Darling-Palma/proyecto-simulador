@@ -1,42 +1,31 @@
-import json, os
-from ..entidades.objetos import Casa, Lago, Arbol
-from ..entidades.plantas import Planta
-from ..entidades.animales import Vaca, Gallina, Zorro, Caballo, Oso, Cerdo, Lobo, Rana, Pez
-from ..logica.utilidades import ARCHIVO_GUARDADO
+class Persistencia:
+    def __init__(self, archivo="partida.json"):
+        self.archivo = archivo
+    
+    def guarda(self, ecosistema, persona):
+        try:
+            with open(self.archivo, 'w', encoding='utf-8') as fos:
+                json.dump(
+                    ecosistema.to_dict(persona),
+                    fos,
+                    indent=2,
+                    ensure_ascii=False
+                )
+        except Exception as e:
+            raise Exception(f"Error al guardar: {e}")
+    
+    def rescatar(self):
+        try:
+            if not os.path.exists(self.archivo):
+                return None, None
+            
+            with open(self.archivo, 'r', encoding='utf-8') as fis:
+                data = json.load(fis)
 
-clase_map = {
-    'Vaca': Vaca, 'Gallina': Gallina, 'Zorro': Zorro,
-    'Caballo': Caballo, 'Oso': Oso, 'Cerdo': Cerdo,
-    'Lobo': Lobo, 'Rana': Rana, 'Pez': Pez
-}
+                persona = Persona.from_dict(data["persona"])
+                ecosistema = Ecosistema.from_dict(data)
 
-def guardar_partida(ecosistema, persona):
-    datos = {
-        'persona': {
-            'x': persona.x, 'y': persona.y,
-            'inventario': getattr(persona, 'inventario', {}),
-            'mirando_izq': getattr(persona, 'mirando_izq', False)
-        },
-        'animales': [], 'plantas': [], 'arboles': []
-    }
-    for a in ecosistema.animales:
-        datos['animales'].append({
-            'clase': type(a).__name__, 'x': a.x, 'y': a.y,
-            'vida': a.vida,
-            'leche': getattr(a, 'leche', 0),
-            'reproduccion_contador': getattr(a, 'reproduccion_contador', 0)
-        })
-    for p in ecosistema.plantas:
-        datos['plantas'].append({'x': p.x, 'y': p.y, 'vida': p.vida})
-    for ar in ecosistema.arboles:
-        datos['arboles'].append({'x': ar.x, 'y': ar.y})
-    with open(ARCHIVO_GUARDADO, 'w') as f:
-        json.dump(datos, f)
-
-def cargar_partida():
-    if not os.path.exists(ARCHIVO_GUARDADO):
-        return None, None
-    with open(ARCHIVO_GUARDADO, 'r') as f:
-        datos = json.load(f)
-    nuevo_eco = object()  
-    return datos
+                return ecosistema, persona
+        
+        except Exception as e:
+            raise Exception(f"Error al rescatar: {e}")
