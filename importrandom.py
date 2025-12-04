@@ -9,7 +9,6 @@ ANCHO, ALTO = 800, 600
 FPS = 20
 GROSOR_ORILLA = 20
 
-
 try:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 except NameError:
@@ -26,7 +25,6 @@ RUTAS = {
     "slot_2": os.path.join(SAVES_DIR, "slot_2.json"),
     "auto":    os.path.join(SAVES_DIR, "autosave.json")
 }
-
 
 
 def distancia(a, b):
@@ -53,7 +51,6 @@ def generar_spawn_cerca(px, py, obs, tam, r=100):
         x, y = max(0, min(ANCHO-tam, x)), max(0, min(ALTO-tam, y))
         if not any(pygame.Rect(x,y,tam,tam).colliderect(o) for o in obs): return x,y
     return generar_spawn_seguro(obs, tam)
-
 
 
 class Entidad:
@@ -143,9 +140,8 @@ class Animal(Entidad):
     def dibujar(self, surf):
         surf.blit(self.imagen, (self.x, self.y))
         dibujar_corazones(surf, self.x, self.y, self.vida)
-    def actualizar(self, eco): pass # Las subclases deben implementarlo
+    def actualizar(self, eco): pass 
 
-    # Métodos de Serialización
     def to_dict(self):
         data = super().to_dict()
         data.update({
@@ -162,7 +158,6 @@ class Animal(Entidad):
 
     @classmethod
     def from_dict(cls, data):
-        
         raise NotImplementedError("from_dict debe ser implementado en subclases de Animal")
 
 
@@ -368,11 +363,9 @@ class Rana(Animal):
         a.__dict__.update(data)
         return a
 
-
 CLASE_MAP = {
-#     "Planta": Planta, "Alga": Alga, "Huevo": Huevo, "Arbol": Arbol, "Casa": Casa,
     "Vaca": Vaca, "Gallina": Gallina, "Zorro": Zorro, "Pez": Pez, "Caballo": Caballo,
-    "Oso": Oso, "Cerdo": Cerdo, "Lobo": Lobo, "Rana": Rana, "Persona": 'Persona' # La Persona se carga aparte
+    "Oso": Oso, "Cerdo": Cerdo, "Lobo": Lobo, "Rana": Rana, "Persona": 'Persona' 
 }
 
 class Arbol(Entidad):
@@ -441,7 +434,6 @@ class Persona(Animal):
             if a.rect.collidepoint(pos) and distancia(self, a)<100: self.obj_drag=a; break
     def soltar(self): self.obj_drag = None
     
-    # Métodos de Serialización para Persona
     def to_dict(self):
         data = super().to_dict()
         data.update({
@@ -453,7 +445,6 @@ class Persona(Animal):
     @classmethod
     def from_dict(cls, data):
         p = cls(data["x"], data["y"])
-        # Cargar atributos de Animal (base)
         for key in ["vida", "velocidad", "mirando_izq", "tx", "ty", "timer"]:
             setattr(p, key, data.get(key, getattr(p, key)))
         p.inventario = data.get("inventario", {"huevos": 0, "leche": 0})
@@ -485,7 +476,6 @@ class Ecosistema:
         if self.casa: self.casa.dibujar(surf)
         for a in self.animales: a.dibujar(surf)
         
-    # Métodos de Serialización para Ecosistema
     def to_dict(self, persona):
         return {
             "persona": persona.to_dict(),
@@ -502,11 +492,9 @@ class Ecosistema:
     def from_dict(cls, data):
         eco = cls()
         
-        # Cargar estructuras fijas (Casa y Lago)
         if data.get("casa"): eco.casa = Casa.from_dict(data["casa"])
         if data.get("lago"): eco.lago = Lago.from_dict(data["lago"])
         
-        # Cargar colecciones de entidades
         for item in data.get("animales", []):
             animal_cls = CLASE_MAP.get(item["__class__"])
             if animal_cls: eco.animales.append(animal_cls.from_dict(item))
@@ -553,7 +541,13 @@ def manejar_clic_animal(pos, eco):
     else: eco.agregar_animal(cls(x, y))
 
 
+
+
 # capa vista
+
+
+
+
 
 COLOR_MENU = (100, 100, 100)
 COLOR_BOTON = (0, 200, 0)
@@ -618,15 +612,15 @@ class MenuPrincipal:
         
         def dibujar_boton(rect, texto, color, archivo):
             existe = os.path.exists(archivo)
-            col = color if existe else (100,100,100) # Gris si no hay partida
+            col = color if existe else (100,100,100) 
             label = texto if existe else f"{texto} (Vacío)"
             if "Auto" in texto: label = "Cargar AutoSave" if existe else "AutoSave (Vacío)"
             pygame.draw.rect(surf, col, rect, border_radius=10)
             txt = F_M.render(label, True, COLOR_TEXTO)
             surf.blit(txt, txt.get_rect(center=rect.center))
 
-        dibujar_boton(self.btn_slot1, "Jugar Slot 1", COLOR_BOTON, RUTAS["slot_1"])
-        dibujar_boton(self.btn_slot2, "Jugar Slot 2", COLOR_BOTON, RUTAS["slot_2"])
+        dibujar_boton(self.btn_slot1, "Jugar 1", COLOR_BOTON, RUTAS["slot_1"])
+        dibujar_boton(self.btn_slot2, "Jugar 2", COLOR_BOTON, RUTAS["slot_2"])
         dibujar_boton(self.btn_auto,  "Cargar Auto", COLOR_BOTON_CARGAR, RUTAS["auto"])
         
         inst = ["WASD: Mover | E: Recoger | G: Guardar", "Espacio: Spawn Mode | Clic+Arrastrar: Mover"]
@@ -636,13 +630,20 @@ class MenuPrincipal:
             surf.blit(txt, (ANCHO//2 - txt.get_width()//2, y)); y+=20
 
     def click(self, pos):
-        # Esta función devuelve: ACCIÓN, RUTA (Lógica del menú)
         if self.btn_slot1.collidepoint(pos): return "JUGAR", RUTAS["slot_1"]
         if self.btn_slot2.collidepoint(pos): return "JUGAR", RUTAS["slot_2"]
         if self.btn_auto.collidepoint(pos):  return "CARGAR_AUTO", RUTAS["auto"]
         return None, None
     
+
+
+
+
 # capa de persistencia
+
+
+
+
 
 class Persistencia:
     def __init__(self, archivo="partida.json"):
@@ -668,17 +669,14 @@ class Persistencia:
             with open(self.archivo, 'r', encoding='utf-8') as fis:
                 data = json.load(fis)
 
-                
                 persona = Persona.from_dict(data["persona"])
-                
-               
+
                 ecosistema = Ecosistema.from_dict(data)
 
                 return ecosistema, persona
         
         except Exception as e:
             raise Exception(f"Error al rescatar: {e}")
-
 
 def guardar_partida(ecosistema, persona, ruta):
     """Función global para guardar una partida en una ruta específica."""
@@ -711,7 +709,7 @@ slot_actual = None
 
 
 EVENTO_AUTOSAVE = pygame.USEREVENT + 1
-pygame.time.set_timer(EVENTO_AUTOSAVE, 60000)
+pygame.time.set_timer(EVENTO_AUTOSAVE, 30000)
 
 while corriendo:
     for e in pygame.event.get():
@@ -732,7 +730,6 @@ while corriendo:
                     if eco_c and per_c: 
                         ecosistema, persona = eco_c, per_c
                     else: 
-                        
                         ecosistema, persona = inicializar(), Persona(ANCHO//2, ALTO//2) 
                     estado = "JUGANDO"
                 
@@ -772,7 +769,6 @@ while corriendo:
         persona.dibujar(ventana)
         
         for a in ecosistema.animales:
-            
             if a != persona:
                 txt = F_N.render(a.nombre, True, (0,0,0))
                 ventana.blit(txt, (a.x+5, a.y+35))
